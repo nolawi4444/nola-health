@@ -1,7 +1,7 @@
 /* NOLA HEALTH — app shell, router, screens */
 (function () {
   'use strict';
-  const VERSION = '1.0.0';
+  const VERSION = '2.0.0';
   const F = window.NolaFoods, E = window.NolaEngine, CH = window.NolaCharts, AI = window.NolaAI, DB = window.NolaDB;
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -68,20 +68,24 @@
 
   /* ---------- router ---------- */
   const ROUTES = { onboarding: rOnboarding, home: rHome, scan: rScan, result: rResult, diary: rDiary, coach: rCoach, me: rMe, readings: rReadings, learn: rLearn, settings: rSettings };
+  const NO_FAB = ['coach', 'onboarding', 'lock', 'report'];
   function route() {
     let name = (location.hash.replace(/^#\/?/, '').split('?')[0]) || 'home';
+    const nav = $('#bottomnav'), fab = $('#fab');
+    document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
+    $('#langBtn').textContent = t('lang_toggle');
+    if (DB.locked) { nav.hidden = true; fab.hidden = true; S.route = 'lock'; $('#view').innerHTML = window.NolaFeatures.lockScreen(); setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 50); return; }
     if (!profile() && name !== 'onboarding') { location.replace('#/onboarding'); name = 'onboarding'; }
     if (!ROUTES[name]) name = 'home';
     if (name === 'result' && !S.result) name = 'scan';
-    const nav = $('#bottomnav'); nav.hidden = name === 'onboarding';
-    nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.nav === name || (name === 'result' && a.dataset.nav === 'scan')));
-    document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
-    $('#langBtn').textContent = t('lang_toggle');
+    nav.hidden = name === 'onboarding'; fab.hidden = NO_FAB.includes(name);
+    const sec = { home: 'home', diary: 'diary', scan: 'scan', result: 'scan', coach: 'coach' }[name] || 'me';
+    nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.nav === sec));
     $('#brandName').textContent = 'NOLA HEALTH';
     S.route = name;
     $('#toast').classList.remove('show');
-    $('#view').innerHTML = ROUTES[name]();
-    if (S._scrollTop !== false) window.scrollTo(0, 0);
+    const v = $('#view'); v.innerHTML = ROUTES[name]();
+    if (S._scrollTop !== false) { window.scrollTo(0, 0); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
     S._scrollTop = true;
     afterRender(name);
   }
@@ -198,6 +202,7 @@
       <div class="grid2" style="margin-top:4px"><div class="card tight"><div class="muted small">${t('bmi')}</div><div style="font-size:24px;font-weight:800">${b ?? '—'}</div><div class="small">${b ? t('bmi_' + E.bmiCat(b)) : ''}</div></div>
         <div class="card tight" data-action="go" data-to="readings" style="cursor:pointer"><div class="muted small">${t('dash_latest')}</div>${lr}</div></div>
       <h2>${t('dash_meals_today')}</h2>${ms.length ? ms.map(mealRow).join('') : `<div class="card muted small">${t('dash_no_meals')}</div>`}
+      <h2>${t('dash_explore')}</h2><div class="explore">${[['glucose', '🩸', 'hub_glucose'], ['restaurant', '🍽️', 'hub_restaurant'], ['planner', '💰', 'hub_planner'], ['academy', '🎓', 'hub_academy'], ['journey', '🌱', 'hub_journey'], ['insights', '🧠', 'hub_memory_food']].map(([r, i, k]) => `<a href="#/${r}"><span>${i}</span>${t(k)}</a>`).join('')}</div>
       <div class="card tip"><div class="row"><span style="font-size:22px">💡</span><h3 style="margin:0">${t('dash_tip')}</h3></div><p style="margin:8px 0 4px">${esc(tr(tip))}</p><div class="tiny muted">${t('source')}: ${tip.src}</div></div>`;
   }
   function mealRow(m) {
@@ -233,7 +238,7 @@
     const rs = readings().filter(r => r.type === ty).sort((a, b) => b.ts - a.ts);
     const pts = rs.slice(0, 30);
     let chart = '';
-    if (ty === 'bp') chart = CH.line([{ pts: pts.map(r => ({ x: r.ts, y: r.sys })), color: '#0f766e' }, { pts: pts.map(r => ({ x: r.ts, y: r.dia })), color: '#14b8a6' }], { band: [80, 130] });
+    if (ty === 'bp') chart = CH.line([{ pts: pts.map(r => ({ x: r.ts, y: r.sys })), color: '#166534' }, { pts: pts.map(r => ({ x: r.ts, y: r.dia })), color: '#4ade80' }], { band: [80, 130] });
     if (ty === 'glucose') chart = CH.line([{ pts: pts.map(r => ({ x: r.ts, y: unit === 'mmol' ? r.mg / 18 : r.mg })), color: '#0369a1' }], { band: unit === 'mmol' ? [3.9, 10] : [70, 180] });
     if (ty === 'weight') chart = CH.line([{ pts: pts.map(r => ({ x: r.ts, y: r.kg })), color: '#7c3aed' }]);
     const val = r => ty === 'bp' ? `${r.sys}/${r.dia} mmHg${r.pulse ? ' · ♥ ' + r.pulse : ''}` : ty === 'glucose' ? `${fmtG(r.mg)} · ${t('ctx_' + (r.ctx || 'random'))}` : `${r.kg} kg`;
@@ -265,6 +270,7 @@
       <button class="btn block" data-action="analyze" id="analyzeBtn" ${d.items.length ? '' : 'disabled'}>${t('scan_analyze')} →</button>`;
   }
   function confBadge(it) {
+    if (it.confirmed) return `<span class="conf h">✓ ${t('conf_confirmed')}</span>`;
     if (it.conf == null) return `<span class="conf u">${t('conf_user')}</span>`;
     const c = it.conf >= 0.75 ? 'h' : it.conf >= 0.5 ? 'm' : 'l';
     return `<span class="conf ${c}" title="${t('confidence')}">${t('confidence')}: ${t({ h: 'conf_high', m: 'conf_med', l: 'conf_low' }[c])} ${R(it.conf * 100)}%</span>`;
@@ -280,10 +286,18 @@
       <div class="ctl"><div class="lbl">${t('scan_portion')}</div><div class="chips">${portions.map(m => `<button class="chip sm ${Math.abs(it.mult - m) < 0.01 ? 'on' : ''}" data-action="item-set" data-i="${i}" data-k="mult" data-v="${m}">${f ? portionLabel(f, m) : E.frac(m) + '×'}</button>`).join('')}</div></div>
       ${(f ? f.oil > 0 : true) ? `<div class="ctl grid2"><div><div class="lbl">${t('scan_oil')}</div>${seg('oil', ['low', 'normal', 'high'], lv)}</div>${f && f.oil > 0 ? `<div><div class="lbl">${t('oil_type')}</div><div class="seg">${['veg', 'kibbeh'].map(v => `<button class="${(it.oilType || f.oilType) === v ? 'on' : ''}" data-action="item-set" data-i="${i}" data-k="oilType" data-v="${v}">${v === 'veg' ? '🌻 ' + t('oil_veg_s') : '🧈 ' + t('oil_kibbeh_s')}</button>`).join('')}</div></div>` : '<div></div>'}</div>` : ''}
       ${(f ? f.salt : true) ? `<div class="ctl"><div class="lbl">${t('scan_salt')}</div>${seg('salt', ['low', 'normal', 'high'], lv)}</div>` : ''}
+      ${f ? measureCtl(f, it, i) : ''}${f && F.methodGroup(f) ? `<div class="ctl"><div class="lbl">${t('scan_method')}</div><div class="chips">${F.METHODS[F.methodGroup(f)].map(([m]) => `<button class="chip sm ${it.method === m ? 'on' : ''}" data-action="item-method" data-i="${i}" data-v="${m}">${t('m_' + F.methodGroup(f) + '_' + m)}</button>`).join('')}</div></div>` : ''}
       <div class="ctl"><div class="lbl">${t('scan_ingredients')}</div><input class="in" style="min-height:38px;padding:8px 10px" data-action-input="item-ing" data-i="${i}" value="${esc(it.ingredients || '')}" placeholder="${f && f.id === 'shiro' ? 'chickpea flour, onion, oil, berbere' : '…'}">${it.cooking ? `<div class="tiny muted" style="margin-top:4px">${t('scan_cooking')}: ${esc(it.cooking)}</div>` : ''}</div>
       <div class="row between" style="margin-top:10px"><span class="small"><b>${R(n.kcal)}</b> kcal · <b>${R(n.c)}</b> g ${t('n_c')} · <b>${R(n.na)}</b> mg Na</span><button class="link small" data-action="open-picker" data-replace="${i}">⇄ ${t('scan_replace')}</button></div>
       ${f && f.note ? `<div class="tiny muted" style="margin-top:6px">💬 ${esc(tr(f.note))}</div>` : ''}
+      <label class="check sm" style="margin-top:8px"><input type="checkbox" data-action-change="item-confirm" data-i="${i}" ${it.confirmed ? 'checked' : ''}><span class="small">${t('scan_confirm_item')}</span></label>
       <div class="tiny muted" style="margin-top:4px">${t('source')}: ${esc(f ? f.src : 'AI vision estimate')}</div></div>`;
+  }
+  function measureCtl(f, it, i) {
+    const ms = F.measures(f); if (!ms.length) return '';
+    const cur = ms.find(x => x.u === it.mu);
+    return `<div class="ctl"><div class="lbl">${t('scan_eth_measure')}</div><div class="row wrap" style="gap:6px">${ms.map(x => `<button class="chip sm ${it.mu === x.u ? 'on' : ''}" data-action="item-measure" data-i="${i}" data-v="${x.u}">${t('u_' + x.u)}</button>`).join('')}
+      ${cur ? `<span class="stepper"><button class="iconbtn sm" data-action="item-mstep" data-i="${i}" data-v="-1" aria-label="−">−</button><b>${it.mn} ${t('u_' + cur.u)}</b><button class="iconbtn sm" data-action="item-mstep" data-i="${i}" data-v="1" aria-label="+">+</button></span><span class="tiny muted">= ${E.frac(it.mult)} × ${esc(tr(f.base))}</span>` : ''}</div></div>`;
   }
   function pickerList(q) {
     let list = F.search(q);
@@ -334,14 +348,14 @@
     const why = a.why.map(w => `<li class="${w.good ? 'good' : w.lvl === 2 ? 'l2' : w.lvl === 1 ? 'l1' : ''}">${esc(w.text)}</li>`).join('');
     return `<div class="row between"><h1>${t('res_title')}</h1><span class="pill info">${t('meal_' + meal)}</span></div>
       <div class="verdict ${a.verdict}" id="verdict"><div class="row"><span class="vi">${icon}</span><div><div class="vt">${t('verdict_' + a.verdict)}</div><div class="small">${t('verdict_' + a.verdict + '_d')}</div></div></div>
-        <div class="tiny" style="margin-top:8px;opacity:.95">${esc(items.map(it => (it.foodId ? fname(F.byId[it.foodId]) : it.name) + ' (' + (it.foodId ? portionLabel(F.byId[it.foodId], it.mult) : E.frac(it.mult) + '×') + ')').join(' · '))}</div></div>
+        <div class="tiny" style="margin-top:8px;opacity:.95">${esc(items.map(it => (it.foodId ? fname(F.byId[it.foodId]) : it.name) + ' (' + (it.mu && it.mn ? it.mn + ' ' + t('u_' + it.mu) : it.foodId ? portionLabel(F.byId[it.foodId], it.mult) : E.frac(it.mult) + '×') + ')').join(' · '))}</div></div>
       ${a.ethiopian ? `<div class="banner" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0">🇪🇹 ${t('res_traditional')}</div>` : ''}
       <div class="card"><h3>${t('res_why')} — ${t('res_for_you')}</h3><ul class="clean why">${why}</ul></div>
       ${a.tips.length ? `<div class="card"><h3>💡 ${t('res_tips')}</h3><ul class="clean">${a.tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
       ${a.alts.length ? `<div class="card"><h3>🔁 ${t('res_alts')}</h3><ul class="clean">${a.alts.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
       <h2>${t('res_breakdown')}</h2>
-      <div class="card"><div class="donut-wrap">${CH.donut([{ v: kc.c, c: '#0f766e' }, { v: kc.p, c: '#f59e0b' }, { v: kc.f, c: '#7c3aed' }], 110)}
-        <div class="legend"><div class="muted small">${t('res_macro')}</div><div><i style="background:#0f766e"></i>${t('n_c')} ${R(kc.c / ks * 100)}%</div><div><i style="background:#f59e0b"></i>${t('n_p')} ${R(kc.p / ks * 100)}%</div><div><i style="background:#7c3aed"></i>${t('n_f')} ${R(kc.f / ks * 100)}%</div><div style="font-weight:800;font-size:16px">${R(tt.kcal)} kcal</div></div></div></div>
+      <div class="card"><div class="donut-wrap">${CH.donut([{ v: kc.c, c: '#166534' }, { v: kc.p, c: '#f59e0b' }, { v: kc.f, c: '#7c3aed' }], 110)}
+        <div class="legend"><div class="muted small">${t('res_macro')}</div><div><i style="background:#166534"></i>${t('n_c')} ${R(kc.c / ks * 100)}%</div><div><i style="background:#f59e0b"></i>${t('n_p')} ${R(kc.p / ks * 100)}%</div><div><i style="background:#7c3aed"></i>${t('n_f')} ${R(kc.f / ks * 100)}%</div><div style="font-weight:800;font-size:16px">${R(tt.kcal)} kcal</div></div></div></div>
       <div class="ncards">${nc('kcal', 'kcal')}${nc('p', 'g')}${nc('c', 'g')}${nc('s', 'g')}${nc('as', 'g')}${nc('f', 'g')}${nc('sf', 'g')}${nc('fb', 'g')}${nc('na', 'mg')}${nc('k', 'mg')}</div>
       <div class="card"><h3>${t('res_vs_meal')}</h3>
         ${CH.bar(t('n_c'), tt.c, a.carbGuide, 'g', true)}${CH.bar(t('n_na'), tt.na, T.na * sh, 'mg', true)}${CH.bar(t('n_sf'), tt.sf, T.sf * sh, 'g', true)}${CH.bar(t('n_kcal'), tt.kcal, T.kcal * sh, 'kcal', true)}${CH.bar(t('n_fb'), tt.fb, T.fb * sh, 'g', false)}</div>
@@ -360,45 +374,96 @@
       ${ms.length ? ms.sort((a, b) => a.ts - b.ts).map(m => mealRow(m).replace('</div></div></div>', `</div><button class="link tiny" data-action="del-meal" data-id="${m.id}">🗑 ${t('del')}</button></div></div>`)).join('') : `<div class="card muted center small">${t('diary_empty')}<br><br><a class="btn sm" href="#/scan">+ ${t('dash_scan_cta')}</a></div>`}`;
   }
 
-  /* ---------- COACH ---------- */
-  function rCoach() {
-    const pr = profile(), chat = DB.get('chat', []), ai = AI.enabled();
-    const qs = ['q_breakfast', 'q_rice', 'q_coffee', 'q_fruit', 'q_soda', 'q_fasting', 'q_injera'];
-    return `<div class="row between"><h1>${t('coach_title')}</h1><span class="pill ${ai ? 'good' : 'info'}">${ai ? '✨ ' + t('coach_ai') : '📴 ' + t('coach_offline')}</span></div>
-      <p class="tiny muted" style="margin-top:0">${t('coach_disclaimer')} ${chat.length ? `<button class="link tiny" data-action="clear-chat">↺</button>` : ''}</p>
-      <div class="chat" id="chat"><div class="msg bot">${md(t('coach_hello', { name: (pr.name || '').split(' ')[0], conds: condLabel(pr) }))}</div>
-        ${chat.map(m => `<div class="msg ${m.role === 'user' ? 'me' : 'bot'}">${md(m.text)}${m.sources && m.sources.length ? `<span class="src">📚 ${esc(m.sources.join(' · '))}</span>` : ''}</div>`).join('')}
-        ${S.coachBusy ? `<div class="msg bot muted" id="thinking">${t('coach_thinking')}</div>` : ''}<div id="chatEnd"></div></div>
-      <div class="chatbar"><div class="sugg">${qs.map(q => `<button class="chip sm" data-action="ask" data-q="${esc(t(q))}">${t(q)}</button>`).join('')}</div>
-        <form id="chatForm"><input class="in" id="chatIn" placeholder="${t('coach_ph')}" autocomplete="off" maxlength="600"><button class="btn" id="chatSend" ${S.coachBusy ? 'disabled' : ''}>${t('coach_send')}</button></form></div>`;
+  /* ---------- NOLA AI (coach) ---------- */
+  function chatList() { return window.NolaInsights.memOn('chat') ? DB.get('chat', []) : (S.chatMem || (S.chatMem = [])); }
+  function saveChat(c) { c = c.slice(-60); if (window.NolaInsights.memOn('chat')) DB.set('chat', c); else S.chatMem = c; }
+  function chatCard(m) {
+    const c = m.card; if (!c) return '';
+    if (c.status !== 'pending') return `<div class="ccard done">${c.status === 'saved' ? '✓ ' + t('nai_saved') : '— ' + t('nai_dismissed')}</div>`;
+    let body = '';
+    if (c.type === 'bp') body = md(t('nai_card_bp', { v: c.sys + '/' + c.dia + (c.pulse ? ' · ♥ ' + c.pulse : '') }));
+    if (c.type === 'glucose') body = md(t('nai_card_g', { v: fmtG(c.mg) })) + `<div class="chips" style="margin-top:6px">${['fasting', 'before', 'after', 'random'].map(x => `<button class="chip sm ${c.ctx === x ? 'on' : ''}" data-action="card-ctx" data-id="${m.id}" data-v="${x}">${t('ctx_' + x)}</button>`).join('')}</div>`;
+    if (c.type === 'weight') body = md(t('nai_card_w', { v: c.kg }));
+    if (c.type === 'memory') body = md(t(c.kind === 'like' ? 'nai_card_like' : 'nai_card_dislike', { v: c.value }));
+    return `<div class="ccard"><div class="small">${body}</div><div class="row" style="gap:8px;margin-top:8px"><button class="btn sm" data-action="card-save" data-id="${m.id}">✓ ${t('nai_confirm')}</button><button class="btn sm ghost" data-action="card-no" data-id="${m.id}">${t('nai_not_now')}</button></div></div>`;
   }
+  function botMsg(m) {
+    const why = m.why && m.why.length ? `<details class="why-box"><summary>💡 ${t('nai_why')}</summary><ul>${m.why.map(w => `<li>${esc(w)}</li>`).join('')}</ul></details>` : '';
+    const links = (m.links || []).map(([to, lab]) => `<a class="btn sm soft" href="#/${to}">${esc(lab)} →</a>`).join(' ');
+    return `<div class="msg bot" data-mid="${m.id || ''}"><div class="mt">${md(m.text)}</div>${chatCard(m)}${why}${links ? `<div class="row wrap" style="gap:6px;margin-top:8px">${links}</div>` : ''}${m.sources && m.sources.length ? `<span class="src">📚 ${esc(m.sources.join(' · '))}</span>` : ''}
+      ${m.id && !m.card ? `<div class="msg-tools">${window.NolaVoice.ttsSupported ? `<button class="fbb" data-action="speak" data-id="${m.id}" aria-label="${t('voice_read')}">🔊</button>` : ''}${window.NolaFeatures.fbBtns('chat', m.id)}</div>` : ''}</div>`;
+  }
+  function rCoach() {
+    const pr = profile(), chat = chatList(), ai = AI.enabled(), V = window.NolaVoice, s = settings();
+    const qs = ['q_today', 'q_dinner', 'q_log_bp', 'q_report', 'q_breakfast', 'q_injera', 'q_fasting', 'q_soda'];
+    return `<div class="row between"><h1>✨ ${t('coach_title')}</h1><span class="pill ${ai ? 'good' : 'info'}">${ai ? '✨ ' + t('coach_ai') : '📴 ' + t('coach_offline')}</span></div>
+      <p class="tiny muted" style="margin-top:0">${t('coach_disclaimer')} ${chat.length ? `<button class="link tiny" data-action="clear-chat">↺ ${t('nai_clear')}</button>` : ''} ${window.NolaInsights.memOn('chat') ? '' : '· ' + t('nai_chat_not_saved')}</p>
+      <div class="chat" id="chat"><div class="msg bot"><div class="mt">${md(t('coach_hello', { name: (pr.name || '').split(' ')[0], conds: condLabel(pr) }))}</div><div class="tiny muted" style="margin-top:6px">${t('nai_hello_extra')}</div></div>
+        ${chat.map(m => m.role === 'user' ? `<div class="msg me">${esc(m.text)}</div>` : botMsg(m)).join('')}
+        ${S.coachBusy ? `<div class="msg bot muted" id="thinking"><span class="dots"><i></i><i></i><i></i></span> ${t('coach_thinking')}</div>` : ''}<div id="chatEnd"></div></div>
+      <div class="chatbar"><div class="sugg">${qs.map(q => `<button class="chip sm" data-action="ask" data-q="${esc(t(q))}">${t(q)}</button>`).join('')}</div>
+        <form id="chatForm"><button type="button" class="iconbtn mic ${S.listening ? 'on' : ''}" data-action="mic" id="micBtn" aria-label="${t('voice_speak')}">🎤</button><input class="in" id="chatIn" placeholder="${t(S.listening ? 'voice_listening' : 'coach_ph')}" autocomplete="off" maxlength="600"><button class="btn" id="chatSend" ${S.coachBusy ? 'disabled' : ''}>${t('coach_send')}</button></form>
+        <div class="row between tiny muted" style="margin-top:4px"><label class="row" style="gap:6px"><input type="checkbox" data-action-change="voice-replies" ${s.voiceReplies ? 'checked' : ''}> 🔊 ${t('voice_replies')}</label><span>${V.sttSupported ? (L() === 'am' ? 'am-ET' : 'en-US') : t('voice_no_stt')}</span></div></div>`;
+  }
+  function pushBot(chat, o) { const m = Object.assign({ id: uid(), role: 'bot', ts: Date.now() }, o); chat.push(m); return m; }
   async function ask(q) {
     q = (q || '').trim(); if (!q || S.coachBusy) return;
-    const pr = profile(), chat = DB.get('chat', []).slice(-48);
+    const pr = profile(), chat = chatList().slice(), B = window.NolaBrain, unit = settings().unit;
     chat.push({ role: 'user', text: q, ts: Date.now() });
-    const flag = E.checkText(q, settings().unit);
+    const flag = E.checkText(q, unit), p = B.parse(q, unit);
+    let speakMsg = null;
     if (flag) {
-      chat.push({ role: 'bot', text: '🚨 ' + t('rf_title') + '\n' + flag.keys.map(k => t(k, { v: flag.v })).join('\n') + '\n' + t('rf_numbers'), sources: ['ADA', 'AHA'] });
-      DB.set('chat', chat); rerender(); showAlert(flag); return;
+      speakMsg = pushBot(chat, { text: '🚨 ' + t('rf_title') + '\n' + flag.keys.map(k => t(k, { v: flag.v })).join('\n') + '\n' + t('rf_numbers'), sources: ['ADA', 'AHA'] });
+      setTimeout(() => showAlert(flag), 200);
     }
-    DB.set('chat', chat);
-    if (AI.enabled()) {
-      S.coachBusy = true; rerender();
-      try {
-        const T = E.targets(pr), hist = chat.slice(settings().lowData ? -4 : -10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
-        const txt = await AI.chat([{ role: 'system', content: AI.coachSystem(pr, T, L()) }, ...hist]);
-        chat.push({ role: 'bot', text: txt.trim(), sources: ['AI · ' + AI.cfg().model] });
-      } catch (e) {
-        const a = window.NolaCoach.answer(q, pr, L());
-        chat.push({ role: 'bot', text: t('coach_err', { e: e.message }) + '\n\n' + a.text, sources: a.sources });
+    if (p && ['bp', 'glucose', 'weight'].includes(p.kind)) {
+      pushBot(chat, { text: t('nai_heard_' + p.kind), card: Object.assign({ type: p.kind, status: 'pending' }, p) });
+    } else if (p && (p.kind === 'like' || p.kind === 'dislike')) {
+      pushBot(chat, { text: t('nai_heard_pref'), card: { type: 'memory', kind: p.kind, value: p.value, status: 'pending' } });
+    } else if (p && p.kind === 'cmd' && !flag) {
+      const c = p.cmd;
+      if (c === 'scan') { pushBot(chat, { text: t('nai_open_scan') }); saveChat(chat); location.hash = '#/scan'; return; }
+      if (c === 'record_bp' || c === 'record_glucose') { speakMsg = pushBot(chat, { text: t('nai_open_form') }); saveChat(chat); rerender(); readingSheet(c === 'record_bp' ? 'bp' : 'glucose'); return; }
+      const r = c === 'today' ? B.today(pr) : c === 'dinner' ? B.dinner(pr) : c === 'report' ? B.report(pr, unit) : c === 'restaurant' ? { text: t('nai_restaurant'), why: B.personalWhy(pr), links: [['restaurant', t('hub_restaurant')]] } : { text: t('nai_budget'), why: [t('pl_why_cheap')], links: [['planner', t('hub_planner')]] };
+      speakMsg = pushBot(chat, Object.assign({ topic: c }, r));
+    } else if (!flag) {
+      if (AI.enabled()) {
+        saveChat(chat); S.coachBusy = true; rerender();
+        try {
+          const T = E.targets(pr), hist = chat.filter(m => m.text).slice(settings().lowData ? -4 : -10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
+          let txt = (await AI.chat([{ role: 'system', content: AI.coachSystem(pr, T, L()) + '\n' + B.context(pr, unit) }, ...hist])).trim();
+          let why = []; const mm = txt.match(/\n\s*\**(Why|ለምን)\**\s*[:：]\s*([\s\S]+)$/i); if (mm) { why = [mm[2].trim()]; txt = txt.slice(0, mm.index).trim(); }
+          speakMsg = pushBot(chat, { text: txt, why, sources: ['AI · ' + AI.cfg().model], topic: window.NolaCoach.detect(q) });
+        } catch (e) {
+          const a = B.answer(q, pr);
+          speakMsg = pushBot(chat, { text: t('coach_err', { e: e.message }) + '\n\n' + a.text, sources: a.sources, why: a.why, topic: a.topic });
+        }
+        S.coachBusy = false;
+      } else {
+        const a = B.answer(q, pr);
+        speakMsg = pushBot(chat, { text: a.text, sources: a.sources, why: a.why, topic: a.topic });
       }
-      S.coachBusy = false;
-    } else {
-      const a = window.NolaCoach.answer(q, pr, L());
-      chat.push({ role: 'bot', text: a.text, sources: a.sources });
     }
-    DB.set('chat', chat);
-    if (S.route === 'coach') { route(); }
+    saveChat(chat);
+    if (S.route === 'coach') rerender();
+    if (speakMsg && settings().voiceReplies) speak(speakMsg.text);
+  }
+  function speak(text) { if (!window.NolaVoice.speak(text, L())) toast(t('voice_no_tts')); }
+  function cardAction(id, save) {
+    const chat = chatList().slice(), m = chat.find(x => x.id === id); if (!m || !m.card || m.card.status !== 'pending') return;
+    const c = m.card, B = window.NolaBrain, unit = settings().unit; c.status = save ? 'saved' : 'dismissed';
+    let flag = null, g = null;
+    if (save) {
+      const rs = readings().slice(), now = Date.now();
+      if (c.type === 'bp') { rs.push({ id: uid(), type: 'bp', ts: now, sys: c.sys, dia: c.dia, pulse: c.pulse || null, src: 'chat' }); DB.set('readings', rs); g = B.bpGuidance(c.sys, c.dia); flag = E.checkBP(c.sys, c.dia); }
+      if (c.type === 'glucose') { rs.push({ id: uid(), type: 'glucose', ts: now, mg: c.mg, ctx: c.ctx || 'random', src: 'chat' }); DB.set('readings', rs); g = B.glucoseGuidance(c.mg, c.ctx || 'random', unit); flag = E.checkGlucose(c.mg, unit); }
+      if (c.type === 'weight') { rs.push({ id: uid(), type: 'weight', ts: now, kg: c.kg, src: 'chat' }); DB.set('readings', rs); const pr = profile(); pr.weight = c.kg; DB.set('profile', pr); g = { text: t('nai_w_saved', { v: c.kg }), why: [t('nai_why_w')], sources: ['WHO'] }; }
+      if (c.type === 'memory') { B.remember(c.kind, c.value); g = { text: t('nai_pref_saved', { v: c.value }), why: [t('nai_why_pref')] }; }
+      if (g) pushBot(chat, Object.assign({ topic: c.type }, g));
+    }
+    saveChat(chat); rerender();
+    if (flag) setTimeout(() => showAlert(flag), 250);
+    if (g && settings().voiceReplies) speak(g.text);
   }
 
   /* ---------- ME / SETTINGS / LEARN ---------- */
@@ -408,7 +473,8 @@
     return `<div class="card"><div class="row"><div class="avatar">${esc((pr.name || '?').trim()[0] || '?').toUpperCase()}</div><div><h2 style="margin:0">${esc(pr.name)}</h2><div class="small muted">${E.age(pr)} · ${pr.weight} kg · ${pr.height} cm · ${t('bmi')} ${b ?? '—'}</div></div></div>
       <div class="chips" style="margin-top:12px">${conds.length ? conds.map(c => `<span class="pill info">${t('c_' + c)}</span>`).join('') : `<span class="pill info">${t('conds_none')}</span>`}</div>
       <div class="small muted" style="margin-top:10px">${T.kcal} kcal · ${t('n_c')} ${T.c} g · ${t('n_na')} ${T.na} mg · ${t('n_sf')} ${T.sf} g · ${t('n_fb')} ${T.fb} g</div></div>
-      <div class="card tight">
+      ${window.NolaFeatures.hubGrid()}
+      <h2>${t('hub_account')}</h2><div class="card tight">
         <button class="list-btn" data-action="edit-profile" id="editProfile"><span>👤 ${t('me_edit')}</span><span>›</span></button>
         <button class="list-btn" data-action="go" data-to="readings"><span>📈 ${t('me_readings')}</span><span>›</span></button>
         <button class="list-btn" data-action="go" data-to="learn"><span>🛡️ ${t('me_learn')}</span><span>›</span></button>
@@ -420,14 +486,17 @@
     const s = settings();
     return `<h1>${t('me_settings')}</h1>
       <div class="card"><div class="row between"><b>${t('set_language')}</b><div class="seg" style="width:180px"><button class="${L() === 'en' ? 'on' : ''}" data-action="set-lang" data-v="en">English</button><button class="${L() === 'am' ? 'on' : ''}" data-action="set-lang" data-v="am">አማርኛ</button></div></div>
-        <div class="row between" style="margin-top:14px"><div><b>${t('set_lowdata')}</b><div class="tiny muted">${t('set_lowdata_d')}</div></div><label class="row"><input type="checkbox" id="lowData" data-action-change="lowdata" ${s.lowData ? 'checked' : ''} style="width:22px;height:22px;accent-color:#0f766e"></label></div>
+        <div class="row between" style="margin-top:14px"><div><b>${t('set_lowdata')}</b><div class="tiny muted">${t('set_lowdata_d')}</div></div><label class="row"><input type="checkbox" id="lowData" data-action-change="lowdata" ${s.lowData ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
+        <div class="row between" style="margin-top:14px"><b>${t('set_textsize')}</b><div class="seg" style="width:200px" id="tsSeg">${['s', 'm', 'l', 'xl'].map(x => `<button class="${(DB.ui().textSize || 'm') === x ? 'on' : ''}" data-action="set-textsize" data-v="${x}" aria-label="${t('set_textsize')} ${x}">${{ s: 'A-', m: 'A', l: 'A+', xl: 'A++' }[x]}</button>`).join('')}</div></div>
+        <div class="row between" style="margin-top:14px"><div><b>${t('voice_replies')}</b><div class="tiny muted">${window.NolaVoice.ttsSupported ? (window.NolaVoice.hasVoice(L()) ? t('voice_ok') : t('voice_no_tts')) : t('voice_no_tts')}</div></div><label class="row"><input type="checkbox" data-action-change="voice-replies" ${s.voiceReplies ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
         <div class="row between" style="margin-top:14px"><b>${t('set_unit')}</b><div class="seg" style="width:180px"><button class="${s.unit === 'mg' ? 'on' : ''}" data-action="set-unit" data-v="mg">mg/dL</button><button class="${s.unit === 'mmol' ? 'on' : ''}" data-action="set-unit" data-v="mmol">mmol/L</button></div></div></div>
       <div class="card"><h3>✨ ${t('set_ai')}</h3><p class="tiny muted">${t('set_ai_d')}</p>
         <label class="f">${t('set_base')}</label><input class="in" id="aiBase" value="${esc(s.aiBase)}" placeholder="https://api.openai.com/v1">
         <label class="f">${t('set_key')}</label><input class="in" id="aiKey" type="password" value="${esc(s.aiKey)}" placeholder="sk-…" autocomplete="off">
         <label class="f">${t('set_model')}</label><input class="in" id="aiModel" value="${esc(s.aiModel)}" placeholder="gpt-4o-mini">
         <div class="row" style="margin-top:12px"><button class="btn grow" data-action="save-ai" id="saveAi">${t('save')}</button><button class="btn ghost" data-action="test-ai">${t('set_test')}</button></div><div id="aiStatus" class="small" style="margin-top:8px"></div></div>
-      <div class="card tight"><button class="list-btn" data-action="export"><span>⬇️ ${t('set_export')}</span><span>›</span></button>
+      <div class="card tight"><button class="list-btn" data-action="export"><span>⬇️ ${t('set_export')} <span class="tiny muted">(${t('set_unencrypted')})</span></span><span>›</span></button>
+        <button class="list-btn" data-action="go" data-to="privacy"><span>🔒 ${t('hub_privacy')}</span><span>›</span></button>
         <label class="list-btn" style="cursor:pointer"><span>⬆️ ${t('set_import')}</span><input type="file" id="importIn" accept="application/json" hidden><span>›</span></label>
         <button class="list-btn" data-action="reset" style="color:var(--red)"><span>🗑 ${t('set_reset')}</span><span>›</span></button></div>
       <div class="card"><h3>${t('about')}</h3><p class="small muted">NOLA HEALTH v${VERSION} · ${DB.usingIDB ? 'IndexedDB' : 'localStorage'} · ${'serviceWorker' in navigator && navigator.serviceWorker.controller ? t('offline_ready') : location.protocol === 'file:' ? 'file:// mode' : ''}</p><p class="tiny muted">${t('disclaimer')}</p></div>`;
@@ -472,11 +541,11 @@
     'pick-cat'(el) { S.pickerCat = el.dataset.v; $('#pickCats').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === el)); $('#pickSearch').value = ''; $('#pickList').innerHTML = pickerList(''); },
     'pick-food'(el) {
       const id = el.dataset.id;
-      if (S.pickerMode === 'add' || S.pickerMode == null) { addItem(id); toast('+ ' + fname(F.byId[id])); el.style.background = '#e6f6f2'; }
+      if (S.pickerMode === 'add' || S.pickerMode == null) { addItem(id); toast('+ ' + fname(F.byId[id])); el.style.background = '#e8f5ec'; }
       else { const it = S.draft.items[S.pickerMode]; Object.assign(it, { foodId: id, mult: 1, custom: null, name: null, oilType: undefined }); closeSheet(); rerender(); }
     },
     'quick-add'(el) { el.dataset.ids.split(',').forEach(addItem); rerender(); },
-    'item-set'(el) { const it = S.draft.items[+el.dataset.i]; it[el.dataset.k] = el.dataset.k === 'mult' ? +el.dataset.v : el.dataset.v; rerender(); },
+    'item-set'(el) { const it = S.draft.items[+el.dataset.i]; it[el.dataset.k] = el.dataset.k === 'mult' ? +el.dataset.v : el.dataset.v; if (el.dataset.k === 'mult') it.mu = null; rerender(); },
     'item-del'(el) { S.draft.items.splice(+el.dataset.i, 1); rerender(); },
     analyze() { const d = S.draft; if (!d.items.length) return; runAnalysis(d.items, d.meal, d.photo); },
     'edit-meal'() { location.hash = '#/scan'; },
@@ -490,7 +559,28 @@
     'del-meal'(el) { if (!confirm(t('del') + '?')) return; DB.set('meals', meals().filter(m => m.id !== el.dataset.id)); toast(t('diary_deleted')); rerender(); },
     day(el) { const d = new Date(S.diaryDate + 'T12:00:00'); d.setDate(d.getDate() + +el.dataset.v); if (d > new Date()) return; S.diaryDate = dayKey(d); rerender(); },
     ask(el) { ask(el.dataset.q); },
-    'clear-chat'() { DB.set('chat', []); rerender(); },
+    'clear-chat'() { saveChat([]); rerender(); },
+    'card-save'(el) { cardAction(el.dataset.id, true); },
+    'card-no'(el) { cardAction(el.dataset.id, false); },
+    'card-ctx'(el) { const chat = chatList().slice(), m = chat.find(x => x.id === el.dataset.id); if (m && m.card) { m.card.ctx = el.dataset.v; saveChat(chat); rerender(); } },
+    speak(el) { const m = chatList().find(x => x.id === el.dataset.id); if (m) speak(m.text); },
+    mic() {
+      const V = window.NolaVoice;
+      if (!V.sttSupported) return toast(t('voice_no_stt'));
+      if (S.listening) { V.stop(); return; }
+      V.stopSpeaking(); S.listening = true; const b = $('#micBtn'); if (b) b.classList.add('on'); const inp = $('#chatIn'); if (inp) inp.placeholder = t('voice_listening');
+      V.listen({ lang: L(), onResult: (txt) => { const i = $('#chatIn'); if (i) i.value = txt; },
+        onEnd: (fin) => { S.listening = false; const b2 = $('#micBtn'); if (b2) b2.classList.remove('on'); const i = $('#chatIn'); const q = (fin || (i && i.value) || '').trim(); if (i) { i.value = ''; i.placeholder = t('coach_ph'); } if (q) ask(q); },
+        onError: (e) => { S.listening = false; const b2 = $('#micBtn'); if (b2) b2.classList.remove('on'); toast(e === 'not-allowed' ? t('voice_denied') : e === 'language-not-supported' ? t('voice_lang_unsupported') : t('voice_error', { e })); } });
+    },
+    'set-textsize'(el) { DB.ui({ textSize: el.dataset.v }); applyTextSize(); rerender(); },
+    'item-method'(el) {
+      const it = S.draft.items[+el.dataset.i], f = F.byId[it.foodId], g = F.methodGroup(f), mm = g && F.METHODS[g].find(x => x[0] === el.dataset.v);
+      if (!mm) return; it.method = it.method === mm[0] ? undefined : mm[0];
+      Object.assign(it, { oil: 'normal', salt: 'normal', oilType: undefined }, it.method ? (({ extra, ...o }) => o)(mm[1]) : {}); rerender();
+    },
+    'item-measure'(el) { const it = S.draft.items[+el.dataset.i], ms = F.measures(F.byId[it.foodId]).find(x => x.u === el.dataset.v); if (!ms) return; if (it.mu === ms.u) { it.mu = null; rerender(); return; } it.mu = ms.u; it.mn = Math.max(1, Math.round(it.mult / ms.frac)); it.mult = Math.round(it.mn * ms.frac * 1000) / 1000; rerender(); },
+    'item-mstep'(el) { const it = S.draft.items[+el.dataset.i], ms = F.measures(F.byId[it.foodId]).find(x => x.u === it.mu); if (!ms) return; it.mn = Math.max(1, (it.mn || 1) + +el.dataset.v); it.mult = Math.round(it.mn * ms.frac * 1000) / 1000; rerender(); },
     'edit-profile'() { obInit(true); location.hash = '#/onboarding'; },
     'set-unit'(el) { saveSettings({ unit: el.dataset.v }); const pr = profile(); pr.unit = el.dataset.v; DB.set('profile', pr); rerender(); },
     'save-ai'() { saveSettings({ aiBase: $('#aiBase').value.trim(), aiKey: $('#aiKey').value.trim(), aiModel: $('#aiModel').value.trim() }); toast(t('set_saved')); },
@@ -506,7 +596,8 @@
     },
     async reset() { if (!confirm(t('set_reset_q'))) return; await DB.clear(); S.draft = S.result = S.ob = null; location.hash = '#/onboarding'; route(); },
   };
-  function setLang(l) { I18N.set(l); saveSettings({ lang: l }); rerender(); }
+  function setLang(l) { I18N.set(l); DB.ui({ lang: l }); if (!DB.locked) saveSettings({ lang: l }); document.documentElement.lang = l; rerender(); }
+  function applyTextSize() { const ts = DB.ui().textSize || 'm'; document.documentElement.dataset.ts = ts; }
 
   document.addEventListener('click', ev => {
     const el = ev.target.closest('[data-action]'); if (!el) return;
@@ -529,8 +620,10 @@
   document.addEventListener('change', ev => {
     const el = ev.target;
     if (el.id === 'camIn' || el.id === 'upIn') onPhoto(el.files[0]);
+    if (el.dataset.actionChange === 'voice-replies') { saveSettings({ voiceReplies: el.checked }); toast(t('set_saved')); if (!el.checked) window.NolaVoice.stopSpeaking(); }
+    if (el.dataset.actionChange === 'item-confirm') { S.draft.items[+el.dataset.i].confirmed = el.checked; rerender(); }
     if (el.dataset.actionChange === 'lowdata') { saveSettings({ lowData: el.checked }); document.body.classList.toggle('lowdata', el.checked); toast(t('set_saved')); }
-    if (el.id === 'importIn' && el.files[0]) { const fr = new FileReader(); fr.onload = () => { try { const d = JSON.parse(fr.result); ['profile', 'meals', 'readings', 'chat'].forEach(k => { if (d[k]) DB.set(k, d[k]); }); if (d.settings) saveSettings(Object.assign({}, d.settings, { aiKey: settings().aiKey })); toast(t('set_imported')); location.hash = '#/home'; route(); } catch (e) { toast('Invalid file'); } }; fr.readAsText(el.files[0]); }
+    if (el.id === 'importIn' && el.files[0]) { const fr = new FileReader(); fr.onload = () => { try { const d = JSON.parse(fr.result); ['profile', 'meals', 'readings', 'chat', 'glogs', 'memory', 'feedback', 'plan', 'shopping', 'prices', 'academy', 'activities', 'checkups', 'badges', 'shares', 'supporting', 'restaurant'].forEach(k => { if (d[k]) DB.set(k, d[k]); }); if (d.settings) saveSettings(Object.assign({}, d.settings, { aiKey: settings().aiKey })); toast(t('set_imported')); location.hash = '#/home'; route(); } catch (e) { toast('Invalid file'); } }; fr.readAsText(el.files[0]); }
   });
   document.addEventListener('submit', ev => { if (ev.target.id === 'chatForm') { ev.preventDefault(); const i = $('#chatIn'); const q = i.value; i.value = ''; ask(q); } });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('#alert').hidden) $('#alert').hidden = true; else if (!$('#sheet').hidden) A['close-sheet'](); } });
@@ -538,11 +631,25 @@
   function net() { $('#netBadge').hidden = navigator.onLine; }
   window.addEventListener('online', net); window.addEventListener('offline', net);
 
-  (async function boot() {
-    await DB.init(['profile', 'settings', 'meals', 'readings', 'chat']);
-    const s = settings(); I18N.set(s.lang); document.body.classList.toggle('lowdata', !!s.lowData); net();
-    route();
-    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(() => {});
-  })();
-  window.NolaApp = { S, route, ask };
+  function applySettings() { const st = settings(); I18N.set(DB.ui().lang || st.lang); document.documentElement.lang = I18N.lang; document.body.classList.toggle('lowdata', !!st.lowData); }
+  function afterUnlock() { applySettings(); if (!location.hash || location.hash === '#/lock') location.hash = '#/home'; route(); }
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); window.NolaVoice && window.NolaVoice.stopSpeaking(); return; }
+    if (DB.encrypted && !DB.locked && settings().autoLock && hiddenAt && Date.now() - hiddenAt > 5 * 6e4) DB.flush().then(() => location.reload());
+  });
+  async function boot() {
+    applyTextSize(); I18N.set(DB.ui().lang || 'en');
+    await DB.init();
+    if (!DB.locked) applySettings();
+    net(); route();
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+      const had = !!navigator.serviceWorker.controller; let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded && !S.coachBusy && !(S.draft && S.draft.items.length)) { reloaded = true; DB.flush().then(() => location.reload()); } });
+      navigator.serviceWorker.register('sw.js').then(r => r.update && r.update()).catch(() => {});
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else setTimeout(boot, 0);
+  window.NolaApp = { S, ROUTES, A, VERSION, route, rerender, ask, toast, openSheet, closeSheet, showAlert, md, esc, uid, dayKey, profile, settings, saveSettings, meals, readings,
+    defaultMeal, condLabel, newDraft, openPicker, compressImage, runAnalysis, readingSheet, chatList, afterUnlock, applyTextSize, latest };
 })();

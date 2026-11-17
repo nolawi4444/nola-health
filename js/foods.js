@@ -246,7 +246,87 @@
       { portions: P.piece, base: { en: '1 burger ≈250 g', am: '1 በርገር ≈250 ግ' }, gi: 'high', tags: ['meat'], allergens: ['gluten', 'dairy'], src: USDA + ' fast food' }),
     F('pizza', 'Pizza', 'ፒዛ', 'staple',
       { kcal: 285, p: 12, c: 36, s: 3.8, as: 1, f: 10, sf: 4.5, fb: 2.5, na: 640, k: 184 },
-      { portions: P.slice, base: { en: '1 slice ≈107 g', am: '1 ቁራጭ ≈107 ግ' }, gi: 'high', tags: ['vegetarian'], allergens: ['gluten', 'dairy'], src: USDA + ' #173282' }),
+      { portions: P.slice, base: { en: '1 slice ≈107 g', am: '1 ቁራጭ ≈107 ግ' }, gi: 'high', tags: ['vegetarian'], allergens: ['gluten', 'dairy'], src: USDA + ' #173282' }),    // ---- v2: more Ethiopian dishes (household & restaurant classics)
+    F('shiro_tegabino', 'Shiro tegabino (thick, with butter)', 'ሽሮ ተጋቢኖ', 'stew',
+      { kcal: 380, p: 14, c: 32, s: 4, as: 0, f: 22, sf: 9, fb: 9, na: 800, k: 480 },
+      { portions: P.cup, base: { en: '1 clay-pot serving ≈240 g', am: '1 ተጋቢኖ ≈240 ግ' }, gi: 'low', tags: ['legume'], allergens: ['dairy'], oil: 18, oilType: 'kibbeh', salt: true,
+        src: RECIPE + ' (restaurant style)', note: { en: 'Restaurant shiro is usually richer: more butter/oil and salt than home shiro. Ask for "be zeyt" (with oil) on fasting days.', am: 'የምግብ ቤት ሽሮ ከቤቱ የበለጠ ቅቤና ጨው አለው።' } }),
+    F('bozena_shiro', 'Bozena shiro (shiro with meat)', 'ቦዘና ሽሮ', 'stew',
+      { kcal: 380, p: 20, c: 28, s: 4, as: 0, f: 20, sf: 6, fb: 8, na: 850, k: 500 },
+      { portions: P.cup, base: { en: '1 cup ≈240 g', am: '1 ኩባያ ≈240 ግ' }, gi: 'low', tags: ['legume', 'meat'], allergens: ['dairy'], oil: 14, oilType: 'kibbeh', salt: true, src: RECIPE }),
+    F('misir_alicha', 'Misir alicha (mild lentils, turmeric)', 'ምስር አልጫ', 'stew',
+      { kcal: 250, p: 15, c: 36, s: 3, as: 0, f: 6, sf: 0.8, fb: 12, na: 500, k: 600 },
+      { portions: P.cup, base: { en: '1 cup ≈240 g', am: '1 ኩባያ ≈240 ግ' }, gi: 'low', tags: ['fasting', 'vegan', 'legume'], oil: 5, salt: true, src: RECIPE + ' (lentils USDA #172421)' }),
+    F('shimbra_asa', 'Shimbra asa (chickpea "fish" stew)', 'ሽንብራ አሳ', 'stew',
+      { kcal: 320, p: 14, c: 40, s: 4, as: 0, f: 12, sf: 1.5, fb: 10, na: 600, k: 500 },
+      { portions: P.cup, base: { en: '1 cup ≈240 g', am: '1 ኩባያ ≈240 ግ' }, gi: 'low', tags: ['fasting', 'vegan', 'legume'], oil: 10, salt: true, src: RECIPE }),
+    F('buticha', 'Buticha (chickpea flour dip)', 'ቡቲቻ', 'stew',
+      { kcal: 200, p: 9, c: 22, s: 3, as: 0, f: 9, sf: 1.2, fb: 6, na: 350, k: 300 },
+      { portions: P.serving, base: { en: '½ cup ≈120 g', am: '½ ኩባያ ≈120 ግ' }, gi: 'low', tags: ['fasting', 'vegan', 'legume'], oil: 7, salt: true, src: RECIPE }),
+    F('shorba', 'Shorba (lentil/vegetable soup)', 'ሾርባ', 'stew',
+      { kcal: 180, p: 9, c: 24, s: 4, as: 0, f: 5, sf: 1, fb: 6, na: 750, k: 400 },
+      { portions: P.plate, base: { en: '1 bowl ≈300 ml', am: '1 ሳህን ≈300 ሚሊ' }, gi: 'low', tags: ['fasting', 'vegan', 'legume'], oil: 4, salt: true, src: RECIPE }),
+    F('fosolia', 'Fosolia (green beans & carrots)', 'ፎሶሊያ', 'veg',
+      { kcal: 140, p: 3, c: 16, s: 6, as: 0, f: 7, sf: 1, fb: 5, na: 350, k: 350 },
+      { portions: P.cup, base: { en: '1 cup ≈200 g', am: '1 ኩባያ ≈200 ግ' }, gi: 'low', tags: ['fasting', 'vegan', 'vegetable'], oil: 6, salt: true, src: RECIPE + ' (green beans USDA #169961)' }),
+    F('duba_wot', 'Duba wot (pumpkin stew)', 'የዱባ ወጥ', 'veg',
+      { kcal: 150, p: 2, c: 22, s: 7, as: 0, f: 7, sf: 1, fb: 4, na: 400, k: 500 },
+      { portions: P.cup, base: { en: '1 cup ≈220 g', am: '1 ኩባያ ≈220 ግ' }, gi: 'medium', tags: ['fasting', 'vegan', 'vegetable'], oil: 6, salt: true, src: RECIPE }),
+    F('selata', 'Selata (green salad)', 'ሰላጣ', 'veg',
+      { kcal: 60, p: 1, c: 5, s: 2, as: 0, f: 4, sf: 0.5, fb: 2, na: 150, k: 200 },
+      { portions: P.cup, base: { en: '1 cup ≈100 g', am: '1 ኩባያ ≈100 ግ' }, gi: 'low', tags: ['fasting', 'vegan', 'vegetable'], oil: 4, salt: true, src: USDA + ' (lettuce, tomato, oil-lemon)' }),
+    F('gomen_besiga', 'Gomen be siga (collards with beef)', 'ጎመን በስጋ', 'meat',
+      { kcal: 280, p: 20, c: 10, s: 2, as: 0, f: 18, sf: 6, fb: 4, na: 600, k: 500 },
+      { portions: P.cup, base: { en: '1 cup ≈200 g', am: '1 ኩባያ ≈200 ግ' }, gi: 'low', tags: ['meat', 'vegetable'], allergens: ['dairy'], oil: 10, oilType: 'kibbeh', salt: true, src: RECIPE }),
+    F('ayib_gomen', 'Ayib be gomen (gomen kitfo)', 'አይብ በጎመን', 'veg',
+      { kcal: 220, p: 13, c: 9, s: 3, as: 0, f: 15, sf: 7, fb: 4, na: 350, k: 400 },
+      { portions: P.cup, base: { en: '1 cup ≈180 g', am: '1 ኩባያ ≈180 ግ' }, gi: 'low', tags: ['vegetarian', 'vegetable'], allergens: ['dairy'], oil: 8, oilType: 'kibbeh', salt: true, src: RECIPE }),
+    F('minchet', 'Minchet abish (minced beef stew)', 'ምንቸት አብሽ', 'meat',
+      { kcal: 400, p: 28, c: 9, s: 4, as: 0, f: 28, sf: 10, fb: 2, na: 800, k: 520 },
+      { portions: P.cup, base: { en: '1 cup ≈240 g', am: '1 ኩባያ ≈240 ግ' }, gi: 'low', tags: ['meat'], allergens: ['dairy'], oil: 16, oilType: 'kibbeh', salt: true, src: RECIPE }),
+    F('awaze_tibs', 'Awaze tibs (beef in chili paste)', 'አዋዜ ጥብስ', 'meat',
+      { kcal: 400, p: 35, c: 8, s: 4, as: 0, f: 25, sf: 8.5, fb: 1.5, na: 850, k: 560 },
+      { portions: P.plate, base: { en: '1 plate ≈200 g', am: '1 ሳህን ≈200 ግ' }, gi: 'low', tags: ['meat'], oil: 12, salt: true, src: RECIPE }),
+    F('zilzil_tibs', 'Zilzil tibs (beef strips)', 'ዝልዝል ጥብስ', 'meat',
+      { kcal: 420, p: 38, c: 5, s: 2, as: 0, f: 28, sf: 9, fb: 1, na: 650, k: 560 },
+      { portions: P.plate, base: { en: '1 plate ≈200 g', am: '1 ሳህን ≈200 ግ' }, gi: 'low', tags: ['meat'], oil: 15, salt: true, src: RECIPE }),
+    F('yebeg_tibs', 'Yebeg tibs (lamb tibs)', 'የበግ ጥብስ', 'meat',
+      { kcal: 450, p: 32, c: 5, s: 2, as: 0, f: 34, sf: 14, fb: 1, na: 600, k: 480 },
+      { portions: P.plate, base: { en: '1 plate ≈200 g', am: '1 ሳህን ≈200 ግ' }, gi: 'low', tags: ['meat'], oil: 12, salt: true, src: RECIPE + ' (lamb USDA #172519)' }),
+    F('mahberawi', 'Mahberawi platter (kitfo, tibs, ayib, gomen)', 'ማህበራዊ', 'meat',
+      { kcal: 850, p: 55, c: 12, s: 4, as: 0, f: 62, sf: 26, fb: 4, na: 1300, k: 900 },
+      { portions: P.serving, base: { en: '1 platter share ≈400 g (no injera)', am: '1 ድርሻ ≈400 ግ (ያለ እንጀራ)' }, gi: 'low', tags: ['meat', 'raw'], allergens: ['dairy'], oil: 30, oilType: 'kibbeh', salt: true,
+        src: RECIPE, note: { en: 'A celebration platter: very high in saturated fat. Sharing it and adding extra gomen and salad helps.', am: 'የበዓል ምግብ ነው፤ ሳቹሬትድ ስቡ በጣም ከፍተኛ ነው። ማጋራትና ጎመን/ሰላጣ መጨመር ይረዳል።' } }),
+    F('quanta_firfir', 'Quanta firfir (dried beef)', 'ቋንጣ ፍርፍር', 'breakfast',
+      { kcal: 480, p: 26, c: 52, s: 4, as: 0, f: 18, sf: 8, fb: 6, na: 900, k: 450 },
+      { portions: P.plate, base: { en: '1 plate ≈250 g', am: '1 ሳህን ≈250 ግ' }, gi: 'medium', tags: ['meat'], allergens: ['dairy'], oil: 14, oilType: 'kibbeh', salt: true, src: RECIPE }),
+    F('tsom_firfir', 'Yetsom firfir (fasting, oil-based)', 'የጾም ፍርፍር', 'breakfast',
+      { kcal: 360, p: 9, c: 56, s: 4, as: 0, f: 11, sf: 1.5, fb: 7, na: 650, k: 330 },
+      { portions: P.plate, base: { en: '1 plate ≈250 g', am: '1 ሳህን ≈250 ግ' }, gi: 'medium', tags: ['fasting', 'vegan'], oil: 10, salt: true, src: RECIPE }),
+    F('kategna', 'Kategna (injera with butter & berbere)', 'ቃተኛ', 'breakfast',
+      { kcal: 380, p: 9, c: 50, s: 1, as: 0, f: 16, sf: 10, fb: 5, na: 300, k: 230 },
+      { portions: P.injera, base: { en: '1 injera ≈150 g + butter', am: '1 እንጀራ + ቅቤ' }, gi: 'medium', tags: [], allergens: ['dairy'], oil: 15, oilType: 'kibbeh', salt: true, src: RECIPE }),
+    F('fatira', 'Fatira (with egg & honey)', 'ፈጢራ', 'breakfast',
+      { kcal: 600, p: 16, c: 70, s: 18, as: 15, f: 28, sf: 9, fb: 2, na: 450, k: 200 },
+      { portions: P.piece, base: { en: '1 piece ≈200 g', am: '1 ቁራጭ ≈200 ግ' }, gi: 'high', tags: ['vegetarian'], allergens: ['gluten', 'egg'], oil: 20, salt: true, src: RECIPE }),
+    F('atmit', 'Atmit (porridge drink)', 'አጥሚት', 'breakfast',
+      { kcal: 230, p: 6, c: 38, s: 14, as: 10, f: 6, sf: 3, fb: 3, na: 80, k: 250 },
+      { portions: P.glass, base: { en: '1 cup ≈250 ml', am: '1 ኩባያ ≈250 ሚሊ' }, gi: 'high', tags: ['vegetarian'], allergens: ['gluten', 'dairy'], src: RECIPE + ' (oat/barley, milk, sugar)' }),
+    F('dabo_kolo', 'Dabo kolo (crunchy bread bites)', 'ዳቦ ቆሎ', 'snack',
+      { kcal: 190, p: 4, c: 26, s: 2, as: 1, f: 8, sf: 1.5, fb: 1, na: 150, k: 50 },
+      { portions: P.serving, base: { en: '½ cup ≈40 g', am: '½ ኩባያ ≈40 ግ' }, gi: 'high', tags: ['fasting', 'vegan'], allergens: ['gluten'], oil: 6, salt: true, src: RECIPE }),
+    F('shimbra_kolo', 'Roasted chickpeas (shimbra kolo)', 'የተቆላ ሽንብራ', 'snack',
+      { kcal: 180, p: 10, c: 28, s: 4, as: 0, f: 3, sf: 0.3, fb: 8, na: 20, k: 380 },
+      { portions: P.serving, base: { en: '½ cup ≈50 g', am: '½ ኩባያ ≈50 ግ' }, gi: 'low', tags: ['fasting', 'vegan', 'legume'], src: USDA + ' chickpeas #173757' }),
+    F('ambasha', 'Ambasha (festive bread)', 'አምባሻ', 'staple',
+      { kcal: 230, p: 6, c: 42, s: 5, as: 4, f: 4, sf: 1, fb: 1.5, na: 300, k: 80 },
+      { portions: P.slice, base: { en: '1 slice ≈80 g', am: '1 ቁራጭ ≈80 ግ' }, gi: 'high', tags: ['fasting', 'vegan'], allergens: ['gluten'], salt: true, src: RECIPE }),
+    F('besso', 'Besso (roasted barley drink)', 'በሶ', 'drink',
+      { kcal: 150, p: 4, c: 30, s: 8, as: 8, f: 1, sf: 0.2, fb: 4, na: 10, k: 150 },
+      { portions: P.glass, base: { en: '1 glass ≈250 ml (with sugar)', am: '1 ብርጭቆ ≈250 ሚሊ (በስኳር)' }, gi: 'medium', tags: ['fasting', 'vegan', 'wholegrain'], allergens: ['gluten'], src: FCT }),
+    F('areki', 'Areki (strong spirit)', 'አረቄ', 'drink',
+      { kcal: 100, p: 0, c: 0, s: 0, as: 0, f: 0, sf: 0, fb: 0, na: 0, k: 0 },
+      { portions: P.cupSmall, base: { en: '1 shot ≈40 ml', am: '1 መለኪያ ≈40 ሚሊ' }, gi: 'low', tags: ['alcohol', 'fasting', 'vegan'], src: USDA + ' distilled spirit 40%', note: { en: 'Strong alcohol: can cause delayed low blood sugar with insulin/sulfonylureas and raises blood pressure.', am: 'ጠንካራ አልኮል ነው።' } }),
   ];
 
   const byId = {};
@@ -268,6 +348,46 @@
     chicken: ['chicken breast', 'grilled chicken'], water: ['water', 'ውሃ'], azifa: ['azifa', 'lentil salad'], kinche: ['kinche', 'qinche', 'ቅንጬ'], peanuts: ['peanut', 'ኦቾሎኒ'], fendisha: ['popcorn', 'ፈንዲሻ'],
     enkulal_firfir: ['scrambled egg', 'enkulal'],
   };
+
+  Object.assign(ALIASES, {
+    shiro_tegabino: ['tegabino', 'ተጋቢኖ'], bozena_shiro: ['bozena', 'ቦዘና'], misir_alicha: ['misir alicha', 'lentil alicha'], shimbra_asa: ['shimbra asa', 'ሽንብራ አሳ'],
+    buticha: ['buticha', 'ቡቲቻ'], shorba: ['soup', 'shorba', 'ሾርባ'], fosolia: ['fosolia', 'green beans', 'ፎሶሊያ'], duba_wot: ['pumpkin', 'duba', 'ዱባ'],
+    selata: ['green salad', 'lettuce', 'selata'], gomen_besiga: ['gomen besiga', 'gomen be siga', 'ጎመን በስጋ'], ayib_gomen: ['gomen kitfo', 'ayib be gomen'],
+    minchet: ['minchet', 'minced meat', 'ምንቸት'], awaze_tibs: ['awaze tibs', 'awaze beef', 'አዋዜ ጥብስ'], zilzil_tibs: ['zilzil', 'ዝልዝል'], yebeg_tibs: ['lamb tibs', 'yebeg', 'በግ'],
+    mahberawi: ['mahberawi', 'combo platter', 'ማህበራዊ'], quanta_firfir: ['quanta', 'kwanta', 'dried meat', 'ቋንጣ'], tsom_firfir: ['fasting firfir', 'የጾም ፍርፍር'],
+    kategna: ['kategna', 'ቃተኛ'], fatira: ['fatira', 'ፈጢራ'], atmit: ['atmit', 'ጥሚት'], dabo_kolo: ['dabo kolo', 'ዳቦ ቆሎ'], shimbra_kolo: ['roasted chickpea', 'shimbra'],
+    ambasha: ['ambasha', 'አምባሻ'], besso: ['besso', 'በሶ'], areki: ['areki', 'arak', 'spirit', 'አረቄ'],
+  });
+
+  /* Ethiopian household measures. frac = how many base portions ONE measure is (approximate). */
+  const GURSHA_G = 30; // one gursha (hand-fed bite: injera + wot) ≈ 30 g
+  function measures(f) {
+    const out = [];
+    const g = f.base && f.base.en.match(/≈\s*(\d+)\s*(g|ml)/); const baseG = g ? +g[1] : null;
+    if (f.id.startsWith('injera') || f.id === 'kategna') { out.push({ u: 'rpiece', frac: 0.25 }); out.push({ u: 'gursha', frac: 1 / 10 }); }
+    else if (['stew', 'veg', 'meat', 'breakfast'].includes(f.cat) && baseG) out.push({ u: 'gursha', frac: Math.round(GURSHA_G / baseG * 1000) / 1000 });
+    if (baseG && f.portions === P.cup) { out.push({ u: 'sini', frac: Math.round(60 / baseG * 100) / 100 }); out.push({ u: 'sinig', frac: 1 }); }
+    if (f.cat === 'drink' && f.portions === P.glass && baseG) out.push({ u: 'sini', frac: Math.round(60 / baseG * 100) / 100 });
+    return out;
+  }
+  /* Cooking-method confirmation: each method adjusts oil level / fat type / extras. */
+  const METHODS = {
+    wot: [['home', {}], ['restaurant', { oil: 'high', salt: 'high' }], ['kibbeh', { oilType: 'kibbeh' }], ['lessoil', { oil: 'low' }]],
+    tibs: [['derek', { oil: 'low' }], ['regular', {}], ['butter', { oilType: 'kibbeh', oil: 'high' }], ['restaurant', { oil: 'high', salt: 'high' }]],
+    raw: [['tire', {}], ['lebleb', {}], ['yebesele', {}]],
+    fried: [['deep', { oil: 'high' }], ['pan', {}], ['baked', { oil: 'low' }]],
+    breakfast: [['home', {}], ['restaurant', { oil: 'high', salt: 'high' }], ['honey', { extra: { kcal: 64, c: 17, s: 17, as: 17 } }], ['lessoil', { oil: 'low' }]],
+  };
+  function methodGroup(f) {
+    if (!f) return null;
+    if (f.tags.includes('raw')) return 'raw';
+    if (/tibs|asa/.test(f.id)) return 'tibs';
+    if (['sambusa', 'fries', 'dabo_kolo'].includes(f.id)) return 'fried';
+    if (f.cat === 'breakfast' && f.oil > 0) return 'breakfast';
+    if (['stew', 'veg', 'meat'].includes(f.cat) && f.oil > 0) return 'wot';
+    return null;
+  }
+
   function search(q, lang) {
     q = (q || '').trim().toLowerCase();
     if (!q) return FOODS;
@@ -284,5 +404,5 @@
     }
     return best;
   }
-  window.NolaFoods = { FOODS, byId, search, match, CATS: ['staple', 'stew', 'veg', 'meat', 'breakfast', 'dairy', 'snack', 'fruit', 'drink'] };
+  window.NolaFoods = { FOODS, byId, search, match, measures, METHODS, methodGroup, CATS: ['staple', 'stew', 'veg', 'meat', 'breakfast', 'dairy', 'snack', 'fruit', 'drink'] };
 })();

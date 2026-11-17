@@ -1,6 +1,6 @@
 /* Tiny dependency-free SVG charts */
 (function () {
-  const C = { teal: '#0f766e', teal2: '#14b8a6', amber: '#f59e0b', orange: '#ea580c', track: '#e3eeec', blue: '#0369a1', violet: '#7c3aed' };
+  const C = { teal: '#166534', teal2: '#4ade80', amber: '#f59e0b', orange: '#ea580c', track: '#e3eeec', blue: '#0369a1', violet: '#7c3aed' };
   function ring(val, max, size, label, sub, color) {
     const p = max ? Math.min(val / max, 1) : 0, sw = size * 0.11, rad = (size - sw) / 2, circ = 2 * Math.PI * rad;
     const col = color || (val > max * 1.05 ? C.orange : C.teal);

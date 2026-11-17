@@ -57,6 +57,10 @@
       out.sf = Math.max(0, out.sf);
     }
     if ((food ? food.salt : true) && it.salt) out.na *= SALT_F[it.salt] || 1;
+    if (food && it.method) {
+      const g = window.NolaFoods.methodGroup(food), mm = g && window.NolaFoods.METHODS[g].find(x => x[0] === it.method);
+      if (mm && mm[1].extra) Object.keys(mm[1].extra).forEach(k => { out[k] += mm[1].extra[k] * m; });
+    }
     return out;
   }
   function mealTotals(items) {
@@ -169,7 +173,7 @@
     // Fasting / raw / kidney notes (informational)
     const rs = pr.restrictions || [];
     if ((rs.includes('fasting') || rs.includes('vegan')) && foods.some(x => x.f && !x.f.tags.includes('fasting') && !x.f.tags.includes('vegan'))) why.push({ lvl: -1, text: t('a_fasting') });
-    if (foods.some(x => x.f && x.f.tags.includes('raw'))) why.push({ lvl: -1, text: t('a_raw') });
+    if (foods.some(x => x.f && x.f.tags.includes('raw') && x.it.method !== 'yebesele')) why.push({ lvl: -1, text: t('a_raw') });
     if (has(pr, 'kidney')) why.push({ lvl: -1, text: t('a_kidney') });
 
     if (sev === 0 && !tips.size && dm) tips.add(t('tip_walk'));

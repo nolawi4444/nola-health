@@ -1,6 +1,6 @@
 /* NOLA HEALTH service worker: cache-first app shell for full offline use. AI API calls are never cached. */
-const CACHE = 'nola-health-v1.0.0';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './css/app.css', './js/i18n.js', './js/foods.js', './js/db.js', './js/engine.js', './js/coach.js', './js/ai.js', './js/charts.js', './js/app.js', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'];
+const CACHE = 'nola-health-v2.0.0';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './css/app.css', './js/i18n.js', './js/i18n2.js', './js/foods.js', './js/crypto.js', './js/db.js', './js/engine.js', './js/coach.js', './js/ai.js', './js/charts.js', './js/planner.js', './js/insights.js', './js/academy.js', './js/nola.js', './js/voice.js', './js/share.js', './vendor/qrcode.min.js', './js/app.js', './js/features.js', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', e => {
