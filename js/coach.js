@@ -41,7 +41,7 @@
       { const change = /\b(stop|quit|start|change|switch|increase|decrease|reduce|double|skip|more|less|dose|dosage|how much|how many)\b|አቁ|ልቀንስ|ልጨምር|ልቀይር|መጠን/i.test(q);
         if (change) add('I can’t advise starting, stopping or changing any medication or dose — please ask your doctor or pharmacist.', 'መድሃኒት ስለመጀመር፣ ስለማቆም ወይም መጠን ስለመቀየር ምክር መስጠት አልችልም — እባክዎ ሐኪምዎን ወይም ፋርማሲስትዎን ይጠይቁ።');
         else add('Here is some general information about medicines (not medical advice):', 'ስለ መድሃኒቶች አጠቃላይ መረጃ (የህክምና ምክር አይደለም)፡');
-        const ml = window.NolaV31 ? window.NolaV31.medLines(q, pr) : [];
+        const ml = window.NolaMedInfo ? window.NolaMedInfo.medLines(q, pr) : [];
         ml.forEach(l => lines.push(l));
         if (!change) lines.push(t('md_never')); }
         add('What I *can* do: help you eat consistently so your medicine works predictably — similar carb amounts at similar times each day.', 'ማድረግ የምችለው፡ መድሃኒትዎ በትክክል እንዲሰራ በየቀኑ ተመሳሳይ ሰዓት ተመሳሳይ መጠን ካርቦሃይድሬት እንዲመገቡ ማገዝ።');
@@ -152,7 +152,7 @@
       case 'bp_mean': {
         const rs = (window.NolaDB.get('readings', []) || []).filter(r => r.type === 'bp').sort((x, y) => y.ts - x.ts), bp = rs[0];
         if (bp) {
-          const cat = window.NolaBrain.bpCat(bp.sys, bp.dia);
+          const cat = ((s, d) => s >= 180 || d >= 120 ? 'crisis' : s >= 140 || d >= 90 ? 'stage2' : s >= 130 || d >= 80 ? 'stage1' : s >= 120 ? 'elevated' : s < 90 || d < 60 ? 'low' : 'normal')(bp.sys, bp.dia);
           const catEn = { crisis: 'very high (180/120 or more)', stage2: 'high — stage 2 (140/90 or more)', stage1: 'high — stage 1 (130–139 / 80–89)', elevated: 'a little raised (120–129 top number)', normal: 'normal (under 120/80)', low: 'low' }[cat] || cat;
           const catAm = { crisis: 'በጣም ከፍተኛ (180/120 እና በላይ)', stage2: 'ከፍተኛ — ደረጃ 2 (140/90 እና በላይ)', stage1: 'ከፍተኛ — ደረጃ 1 (130–139 / 80–89)', elevated: 'ትንሽ ከፍ ያለ (ላይኛው 120–129)', normal: 'መደበኛ (ከ120/80 በታች)', low: 'ዝቅተኛ' }[cat] || cat;
           add(`Your last reading **${bp.sys}/${bp.dia}** is ${catEn} on the AHA scale.`, `የመጨረሻው ልኬትዎ **${bp.sys}/${bp.dia}** በAHA መለኪያ ${catAm} ነው።`);
@@ -169,7 +169,7 @@
         add('• Walking and activity bring it down. Stress, illness and poor sleep can push it up.', '• መራመድና እንቅስቃሴ ያወርዱታል። ጭንቀት፣ ህመምና የእንቅልፍ እጥረት ሊያሳድጉት ይችላሉ።');
         add('• Time matters: it is highest about 1–2 hours after eating, and can be higher in the early morning.', '• ሰዓት፡ ከምግብ 1–2 ሰዓት በኋላ ከፍተኛ ነው፤ ማለዳም ከፍ ሊል ይችላል።');
         add('• Medicines matter too — never change them yourself; ask your doctor if numbers keep changing.', '• መድሃኒቶችም ተጽእኖ አላቸው — በራስዎ አይቀይሩ፤ ቁጥሮች መቀያየር ከቀጠሉ ሐኪምዎን ይጠይቁ።');
-        add('Tip: check before a meal and 2 hours after in "Glucose & meals" to see which foods affect you.', 'ምክር፡ የትኛው ምግብ እንደሚነካዎ ለማየት ከምግብ በፊትና ከ2 ሰዓት በኋላ በ"ምግብና የደም ስኳር" ይለኩ።');
+        add('Tip: check before a meal and 2 hours after and save both in My Health to see which foods affect you.', 'ምክር፡ የትኛው ምግብ እንደሚነካዎ ለማየት ከምግብ በፊትና ከ2 ሰዓት በኋላ ይለኩ፤ በ"የእኔ ጤና" ያስቀምጡ።');
         src = ['ADA Standards of Care 2025']; break;
       case 'shiro':
         add('**Yes — shiro is a good choice for most people.** It is made from chickpea or pea flour: protein + fiber, so blood sugar rises slowly.', '**አዎ — ሽሮ ለብዙ ሰው ጥሩ ምርጫ ነው።** ከሽንብራ ወይም አተር ዱቄት ይሰራል፡ ፕሮቲንና ፋይበር ስላለው ስኳር በዝግታ ይጨምራል።');

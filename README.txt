@@ -1,124 +1,47 @@
-NOLA HEALTH v3.1 - AI-powered personal health & nutrition companion (Ethiopia-first)
-===================================================================================
+NOLA HEALTH v4.0 - Your Personal Health Companion.
+==================================================
 
 LIVE: https://nolawi4444.github.io/nola-health/  (open on your phone -> "Add to Home screen")
 
 HOW TO RUN (Windows)
   1. Unzip NOLA_HEALTH.zip anywhere (e.g. Desktop).
   2. Double-click START-HERE.bat. It starts a tiny local server and opens http://localhost:8642/
-     (uses Python if installed, otherwise built-in PowerShell; if neither works it opens index.html directly).
-  3. On Android/iPhone: open the live link above in Chrome/Safari and choose "Add to Home screen".
-     After the first load it works fully offline.
+  3. On Android/iPhone: open the live link in Chrome/Safari and choose "Add to Home screen".
+     After the first load it works offline.
 Mac/Linux: run  python3 -m http.server 8642  in this folder and open http://localhost:8642/
 
-WHAT'S NEW IN v3.1 (everything from v1-v3 is kept; existing profiles are migrated automatically)
-  - Onboarding in 4 clear steps with a progress bar: "Welcome to NOLA HEALTH. Let's get to know you..."
-    1 About you (name, age or date of birth, weight, height, optional sex)
-    2 Health conditions as icon cards (diabetes type 1 / type 2 / type unknown, prediabetes, high BP,
-      cholesterol, heart, kidney, liver, anemia, obesity/weight concerns, digestive, other, "No known
-      conditions", "I'm not sure"), each with an optional details field. NOLA never adds a condition
-      from weight, BMI, food or behaviour.
-    3 Medicines: search ~50 common medicines in Ethiopia or type any name; dose, how often, what it is
-      for, optional package photo (compressed, stored only on the phone, for your reference - NOLA does
-      not read or identify it). Several medicines, or "I don't take medication". Edit later in
-      My Health > My medicines.
-    4 Food allergies, medication allergies, foods you avoid, diet, foods you like, activity and goals.
-  - "Hello, {name}! Your health journey starts today." - My health plan: educational goals chosen from
-    your conditions, medicines, age and goals (glucose only if diabetic or on diabetes medicine; BP if
-    hypertension/heart disease or on BP medicine; weight only for a weight goal or weight concern;
-    balanced plate, portions, water, activity). Kidney/heart: no water target - "ask your clinician".
-    Heart disease or age 65+: gentle activity, ask your doctor first. Today / completed / remaining,
-    7-day progress bars and simple trends (BP, glucose, weight, meals). No clinical targets are invented.
-  - Food analysis: kidney note is individualized (KDIGO 2024) with no generic potassium/protein rules;
-    liver (avoid alcohol, AASLD/EASL) and anemia (iron foods + vitamin C; tea/coffee away from meals,
-    WHO) notes; gentle medicine-food notes only where well established (grapefruit with some statins /
-    calcium-channel blockers, steady vitamin K with warfarin, alcohol with diabetes medicines, metronidazole,
-    dairy with some antibiotics, tea with iron), always "talk to your doctor or pharmacist".
-    Red is now "Consider an alternative or seek individualized advice"; green is "Generally suitable".
-  - NOLA AI answers medicine questions with general information only (what a medicine is commonly used
-    for, food interactions); timing/dose questions -> "ask your pharmacist"; never start/stop/change advice.
-    With an AI key, the AI context includes your medicine list, medication allergies and condition details
-    (never the medicine photos).
-  - Computers: at 900px+ the app shows a side navigation and a wider, centred layout.
-  - Limits: the medicine list is general reference information, not a full drug-interaction checker, and
-    has not been clinically validated; always confirm with a pharmacist.
+STRUCTURE (v4 is a complete redesign - green & white, large cards, English / Amharic)
+  Navigation: Home | Nolaa AI Doctor | About
 
-WHAT'S NEW IN v3 - "Powerful features, simple experience" (everything from v1 and v2 is kept)
-  - New home: "Selam, {name}!" + 5 big buttons: SCAN MY FOOD, MY HEALTH, WHAT SHOULD I EAT?, ASK NOLA,
-    MY DAILY PLAN. Below: today's summary, latest readings, today's challenge, reminders, goal progress.
-  - Bottom bar: Home - My Health - Scan - NOLA AI - More. Advanced tools (glucose, BP, weight, report
-    reading, insights, history, PDF report, clinician, family, weekly plans, shopping, voice, reminders)
-    live under My Health and More, grouped into "Every day / Health / Food, money & learning / Family & settings".
-  - Bigger default text (16px) and bigger buttons. "Simple mode" (Settings) = extra-large text, fewer options.
-  - Language picker on first run and in Settings: English and Amharic now; Afaan Oromoo, Tigrinya and
-    Somali are shown as "Coming soon" (see js/locales.js for how to add one). Noto Sans Ethiopic font included.
-  - 3-step scan: Photo -> Check -> Result, with a Green / Yellow / Red colour, a simple explanation and a
-    "not a medical diagnosis" note.
-  - NOLA FOOD SCORE 0-100: start at 100, minus points when carbs, salt, saturated fat, added sugar or
-    calories go above YOUR share for this meal (weighted for your conditions), plus points for fiber
-    (and potassium if you watch BP). Tap "Why this score" for the full breakdown. The score always stays
-    in its colour band (green 70-100, yellow 40-69, red 0-39). It is a personalised learning guide,
-    not a medical measurement.
-  - Ethiopian food: 96 foods including kocho/bula, marqa, chukko, ga'at, hilbet, tihlo, siga wot,
-    minchet abish. Recipes vary - each dish shows its other versions (e.g. shiro with/without kibbeh)
-    with their calorie range, and portion / oil / salt / method stay editable.
-  - "What should I eat?": 3 ideas per meal from your health, past meals, likes, budget and fasting days, each with a reason.
-  - "My daily plan": a simple checklist (meals, BP/sugar check, vegetables, water, walk, reminders).
-  - Daily challenges: 3 small rotating challenges, streaks, weekly goal and badges - never shaming.
-  - Reminders: meals, water, medicine (as prescribed), checkups, appointments, walks, routines; for you or a family member.
-  - "Explain my medical report": type HbA1c, fasting sugar, cholesterol, LDL, HDL, triglycerides, eGFR
-    and get plain-language explanations against ADA / AHA / NCEP / KDIGO ranges (no diagnosis). With an
-    AI key you can photograph the report; values are only copied, never guessed, and must be checked.
-  - Planner: likes and diet restrictions per plan, affordable local alternatives.
-  - Market list: kilo, quintal, tera (bundle), piece, liter and "birr worth"; type your own price per item;
-    totals and cheaper healthy swaps.
-  - Family Circle: "Helper package" preset (profile, reminders, checkups, BP, sugar). The helper can add your
-    reminders to their own phone. Same consent rules, nothing shared by default.
-  - Low data: smaller photos, no pictures or animations. Offline: badge, cached screens; NOLA AI questions asked
-    offline are saved and sent automatically when you are back online; failed AI calls have a Retry button.
-    AI food recognition is NOT available offline (no local model) - the app says so and offers the food list.
+  HOME - four cards:
+    1. My Health        personal information, health conditions, medicines, blood pressure, blood sugar,
+                        weight; add / edit / delete readings with date and time; chart; full health history
+                        (readings + saved meals); PIN lock (secure login) and delete-all-data.
+    2. What Should I Eat?  up to 4 dish ideas per meal (breakfast / lunch / dinner / snack) chosen from your
+                        conditions, allergies, diet and fasting days, with estimated carbs, fibre, sodium and
+                        the reasons. Ethiopian dishes included; traditional foods are never labelled unhealthy.
+    3. Reminders        medicine reminders, check-ups and daily health goals (suggested from your profile).
+                        System notifications where the browser allows it + in-app alerts.
+    4. Scan Food        take or upload a meal photo; with an AI key the foods are recognised, otherwise you
+                        pick them from the food database; then estimated nutrition + personalised advice.
 
-WHAT'S NEW IN v2 (everything from v1 is kept)
-  - NOLA AI companion: a floating button on every screen. Type or speak, e.g. "my BP is 140/90" or
-    "sugar 180 after lunch". NOLA asks you to confirm before saving. Every suggestion shows "Why".
-  - Smart food memory: likes/dislikes, recent meals, thumbs up/down. More -> "What NOLA remembers"
-    lets you view, correct, delete or turn off each memory type.
-  - Food & glucose insights (patterns only - never a diagnosis, never a cause, no predictions).
-  - Restaurant assistant: photograph a menu (needs an AI key) or type dish names; it ranks them and
-    compares 2-3 side by side.
-  - Budget meal planner in Birr (prices are APPROXIMATE Addis Ababa prices - edit them in the price table)
-    + a shopping list grouped by food group.
-  - Family Health Circle: an encrypted share (file / QR / text) protected by a passphrase; the recipient sees a read-only view.
-  - Doctor/Dietitian: a printable PDF report (Print -> Save as PDF) and a Clinician view.
-  - Education Academy: 10 short lessons with quizzes (ADA / WHO / AHA), a daily tip, progress.
-  - Health Journey: timeline, badges, check-up reminders, weekly/monthly summaries.
-  - NOLA Voice: speak in English or Amharic (depends on your browser), hear replies.
-  - Ethiopian measures (gursha, piece of injera, sini cup...) and cooking methods.
-  - Text size setting, green design, Amharic everywhere.
-  - Privacy: optional PIN lock that ENCRYPTS all data on the device (AES-256), encrypted backups.
+  NOLAA AI DOCTOR - chat that uses your saved profile and readings. Answers only about health, symptoms,
+    food, nutrition, medicines and lab reports (type values, or send a lab photo with an AI key).
+    Politely declines other topics. Never diagnoses or prescribes; says when to see a doctor and when to
+    seek urgent care (907). Without an AI key it uses the built-in rule-based guide.
+    The AI key is set with the small gear button inside Nolaa AI Doctor.
 
-AI FEATURES (optional)
-  More -> Settings -> AI provider: Base URL + API key + model from any OpenAI-compatible service
-  (e.g. https://api.openai.com/v1 + gpt-4o-mini, or OpenRouter / Groq). The key stays on this device and
-  is never included in exports or shares. Without a key: you pick foods yourself, NOLA AI uses its
-  built-in rule engine, and menu photos are not read (type the dish names instead).
+  ABOUT - what NOLA HEALTH is, the mission (health and nutrition guidance accessible to everyone in
+    Ethiopia), safety and privacy.
 
-LIMITS - HONESTLY
-  - Revoking a family share only works on YOUR phone: a package someone already opened stays on their device.
-    Live sharing, real revocation and doctor verification need a server (see BACKEND.md) - shown as
-    "Requires server - not active".
-  - If you forget your PIN, the data cannot be recovered (that is what encryption means). Keep an encrypted backup.
-  - Voice: Amharic speech recognition / Amharic voices are not available in every browser; the app falls back to typing.
-  - Prices and nutrition values are estimates. Recipe values vary by cook; the food database and the
-    NOLA FOOD SCORE formula have NOT been clinically validated - they need review by a dietitian/clinician.
-  - Live market prices: no reliable Ethiopian price feed exists yet - the adapter (js/planner.js priceFeed)
-    is ready but NOT connected; prices are approximate and editable.
-  - Reminders: there is no push server, so notifications appear while NOLA is open or running in the
-    background; a fully closed app may not alert you (in-app reminders always show when you open it).
-  - Photo food recognition, menu reading and report-photo reading need an AI key and internet.
-  - Amharic text should be reviewed by a native-speaking health professional. Oromo, Tigrinya, Somali: coming soon.
+YOUR DATA
+  Stored only on your device (IndexedDB). With a PIN it is encrypted (AES-GCM). Existing v1-v3.1 data
+  (profile, conditions, medicines, readings, reminders, PIN) is kept and migrated automatically.
+  Removed in v4: academy, journey, family circle, budget/market/shopping, restaurant assistant,
+  challenges, clinician view and dashboards.
 
-SAFETY
-  NOLA HEALTH gives educational estimates. It is not a medical device, does not diagnose and never
-  tells you to change medication. If a reading is high: rest 5 minutes and measure again; if high readings repeat,
-  see a health professional. Emergency in Ethiopia: 907 (ambulance).
+LIMITATIONS
+  - Photo recognition, lab-photo reading and free-text AI answers need your own OpenAI-compatible API key.
+  - Notifications work while the app/browser is open or running in the background; phones may stop them
+    when the app is fully closed (there is no server).
+  - Nutrition values are estimates. NOLA HEALTH is not a doctor and does not replace one.

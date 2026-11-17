@@ -1,715 +1,638 @@
-/* NOLA HEALTH — app shell, router, screens */
+/* NOLA HEALTH v4 — "Your Personal Health Companion".
+   Three sections only: Home (My Health · What Should I Eat? · Reminders · Scan Food), Nolaa AI Doctor, About.
+   Data stays on this device (IndexedDB), optionally encrypted with a PIN (AES-GCM, PBKDF2). Nothing here
+   diagnoses or prescribes; emergency number in Ethiopia: 907. */
 (function () {
   'use strict';
-  const VERSION = '3.1.0';
-  const F = window.NolaFoods, E = window.NolaEngine, CH = window.NolaCharts, AI = window.NolaAI, DB = window.NolaDB;
-  const $ = (s, el = document) => el.querySelector(s);
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const DB = window.NolaDB, E = window.NolaEngine, F = window.NolaFoods, MD = window.NolaMeds, DI = window.NolaDishes, AI = window.NolaAI, CO = window.NolaCoach, CH = window.NolaCharts;
+  const VERSION = '4.0.0', DAY = 864e5;
+  const $ = (s, el = document) => el.querySelector(s), $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const pad = n => String(n).padStart(2, '0');
+  const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+  const today = () => dayKey(Date.now());
   const L = () => I18N.lang;
-  const fname = f => f ? (f.name[L()] || f.name.en) : '';
-  const tr = o => o ? (o[L()] || o.en) : '';
-  const R = Math.round;
-  const dayKey = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
-  const S = { draft: null, result: null, diaryDate: dayKey(Date.now()), ob: null, rdTab: 'bp', pickerCat: 'all', pickerMode: null, coachBusy: false };
+  const fdate = ts => new Date(ts).toLocaleDateString(L() === 'am' ? 'am-ET' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + hm(new Date(ts));
+  const S = { ed: null, rd: { type: 'bp', ctx: 'fasting' }, rdEdit: null, hist: 'all', scan: { photo: null, items: [], meal: null, result: null, saved: false }, slot: null, busy: false, showAi: false, rem: { kind: 'medicine', repeat: 'daily', days: [] }, med: { name: '', dose: '', freq: '', medId: null, edit: null } };
 
-  const TIPS = [
-    { en: 'Fill half your plate with vegetables like gomen, atkilt or salad, a quarter with legumes or lean protein, and a quarter with injera.', am: 'ግማሽ ሳህንዎን በአትክልት (ጎመን፣ አትክልት፣ ሰላጣ)፣ ሩቡን በጥራጥሬ ወይም ፕሮቲን፣ ሩቡን በእንጀራ ይሙሉ።', src: 'ADA Diabetes Plate Method' },
-    { en: 'Keep salt under 5 g a day (about 1 teaspoon), and less if you have high blood pressure. Many berbere blends are already salted.', am: 'ጨው በቀን ከ5 ግ (1 የሻይ ማንኪያ ገደማ) በታች ያድርጉ፤ የደም ግፊት ካለ ያነሰ። ብዙ በርበሬዎች ጨው አላቸው።', src: 'WHO; AHA' },
-    { en: 'Free sugars should be under 10% of your calories, ideally under 5%. One soda already has about 35 g.', am: 'የተጨመረ ስኳር ከካሎሪዎ ከ10% በታች፣ ቢቻል ከ5% በታች ይሁን። አንድ ለስላሳ ~35 ግ አለው።', src: 'WHO Sugars Guideline 2015' },
-    { en: 'Legume wots like shiro, misir and kik are rich in fiber and protein. They raise blood glucose slowly and help lower LDL.', am: 'ሽሮ፣ ምስርና ክክ በፋይበርና ፕሮቲን የበለፀጉ ናቸው፤ ስኳርን በዝግታ ያሳድጋሉ፣ LDLንም ይቀንሳሉ።', src: 'ADA Nutrition Consensus 2019' },
-    { en: 'Swap some niter kibbeh for vegetable oil. Keeping saturated fat under 6% of calories helps lower LDL cholesterol.', am: 'ንጥር ቅቤን በከፊል በአትክልት ዘይት ይተኩ፤ ሳቹሬትድ ስብ ከ6% በታች መሆኑ LDLን ይቀንሳል።', src: 'AHA' },
-    { en: 'Aim for 150 minutes of brisk walking a week. A 10–15 minute walk after meals lowers the glucose rise.', am: 'በሳምንት 150 ደቂቃ ፈጣን እርምጃ ያቅዱ። ከምግብ በኋላ 10–15 ደቂቃ መራመድ የስኳር መጨመርን ይቀንሳል።', src: 'WHO 2020; ADA' },
-    { en: 'Losing 5–7% of your body weight can greatly lower the risk of type 2 diabetes and improve blood pressure.', am: 'ከክብደትዎ 5–7% መቀነስ የስኳር ህመም አይነት 2 ስጋትን በእጅጉ ይቀንሳል፣ ግፊትንም ያሻሽላል።', src: 'Diabetes Prevention Program; ADA' },
-    { en: 'Potassium-rich foods like gomen, beans, potatoes, bananas and avocado help balance sodium (the DASH diet).', am: 'በፖታሲየም የበለፀጉ ምግቦች (ጎመን፣ ባቄላ፣ ድንች፣ ሙዝ፣ አቮካዶ) ሶዲየምን ያመጣጥናሉ (DASH)።', src: 'AHA; NHLBI DASH' },
-  ];
-  const DOCTOR = [
-    { en: 'Blood glucose under 70 mg/dL (3.9 mmol/L) often, or ever under 54 mg/dL (3.0 mmol/L)', am: 'የደም ስኳር ደጋግሞ ከ70 mg/dL (3.9 mmol/L) በታች፣ ወይም አንድ ጊዜም ከ54 በታች' },
-    { en: 'Glucose often over 250 mg/dL (13.9 mmol/L), or over 300 with vomiting or confusion. That is an emergency.', am: 'ስኳር ደጋግሞ ከ250 mg/dL በላይ፣ ወይም ከ300 በላይ ከማስታወክ/ግራ መጋባት ጋር። ይህ ድንገተኛ ነው።' },
-    { en: 'Blood pressure 180/120 or higher is an emergency. 140/90 or higher on repeated checks means see your doctor.', am: 'የደም ግፊት 180/120 እና በላይ ድንገተኛ ነው፤ ደጋግሞ 140/90 እና በላይ ከሆነ ሐኪም ያማክሩ' },
-    { en: 'Chest pain, stroke signs, severe breathlessness or fainting: call 907', am: 'የደረት ህመም፣ የስትሮክ ምልክቶች፣ ከባድ የትንፋሽ ማጠር ወይም ራስን መሳት — 907 ይደውሉ' },
-    { en: 'Weight loss you did not plan, constant thirst or urination, or foot wounds that won’t heal', am: 'ያልታሰበ የክብደት መቀነስ፣ ተደጋጋሚ ጥማት ወይም ሽንት፣ የማይድን የእግር ቁስል' },
-    { en: 'Pregnancy, kidney disease, or before big diet changes or fasting if you use insulin or sulfonylureas', am: 'እርግዝና፣ የኩላሊት ህመም፣ ወይም ኢንሱሊን እየወሰዱ ትልቅ የአመጋገብ ለውጥ ወይም ጾም ከመጀመርዎ በፊት' },
-  ];
-  const SOURCES = [
-    ['American Diabetes Association: Standards of Care in Diabetes (2025)', 'https://diabetesjournals.org/care/issue/48/Supplement_1'],
-    ['WHO: Healthy diet fact sheet; Sugars & Sodium guidelines', 'https://www.who.int/news-room/fact-sheets/detail/healthy-diet'],
-    ['American Heart Association: Diet & lifestyle recommendations; BP categories', 'https://www.heart.org/en/healthy-living/healthy-eating'],
-    ['USDA FoodData Central', 'https://fdc.nal.usda.gov/'],
-    ['Ethiopian Public Health Institute: Food Composition Table for Use in Ethiopia', 'https://ephi.gov.et/'],
-    ['NHLBI: DASH eating plan', 'https://www.nhlbi.nih.gov/education/dash-eating-plan'],
-  ];
+  /* ---------- data ---------- */
+  const profile = () => DB.get('profile', null);
+  const settings = () => DB.get('settings', {}) || {};
+  const saveSettings = p => DB.set('settings', Object.assign({}, settings(), p));
+  const readings = () => DB.get('readings', []) || [];
+  const meals = () => DB.get('meals', []) || [];
+  const rems = () => DB.get('reminders', []) || [];
+  const unit = () => settings().unit || 'mg';
+  const fmtG = mg => E.fmtGlucose(mg, unit());
   const CONDS = ['t1d', 't2d', 'dm_unknown', 'pre', 'gdm', 'htn', 'chol', 'heart', 'kidney', 'liver', 'anemia', 'obesity', 'digestive', 'other', 'unsure', 'none'];
+  const COND_I = { t1d: '💉', t2d: '🩸', dm_unknown: '🩸', pre: '📈', gdm: '🤰', htn: '❤️', chol: '🧈', heart: '🫀', kidney: '🫘', liver: '🟤', anemia: '🩸', obesity: '⚖️', digestive: '🌀', other: '📝', unsure: '❔', none: '✅' };
+  const ALLERGY = ['gluten', 'dairy', 'egg', 'peanut', 'fish', 'legume'], MED_ALLERGY = ['penicillin', 'sulfa', 'nsaid', 'aspirin'];
+  const RESTR = ['fasting', 'halal', 'vegetarian', 'vegan', 'glutenfree', 'noalcohol', 'lowsalt'];
+  const FREQ = ['once', 'twice', 'three', 'night', 'asneeded', 'weekly', 'other'];
+  const condName = c => t('c_' + c);
 
-  /* ---------- infra ---------- */
-  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2200); }
-  function profile() { return DB.get('profile', null); }
-  function settings() { return Object.assign({ lang: 'en', lowData: false, unit: 'mg', aiBase: 'https://api.openai.com/v1', aiKey: '', aiModel: 'gpt-4o-mini' }, DB.get('settings', {})); }
-  function saveSettings(p) { DB.set('settings', Object.assign(settings(), p)); }
-  function meals() { return DB.get('meals', []); }
-  function readings() { return DB.get('readings', []); }
-  function openSheet(html) { const w = $('#sheet'); w.innerHTML = `<div class="sheet" role="dialog">${html}</div>`; w.hidden = false; }
-  function closeSheet() { const w = $('#sheet'); w.hidden = true; w.innerHTML = ''; S.pickerMode = null; }
-  function md(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>'); }
-  function fmtG(mg) { return E.fmtGlucose(mg, settings().unit); }
-  function portionLabel(f, m) { const p = (f && f.portions.find(x => Math.abs(x[0] - m) < 0.01)) || (f && f.portions[0]); const u = p ? p[1] : 'serving'; return E.frac(m) + ' ' + t('u_' + u); }
-  function defaultMeal() { const h = new Date().getHours() + new Date().getMinutes() / 60; return h < 10.5 ? 'breakfast' : h < 15 ? 'lunch' : h < 17.5 ? 'snack' : 'dinner'; }
-  function condLabel(pr) { const c = (pr.conditions || []).filter(x => x !== 'none'); return c.length ? c.map(x => t('c_' + x)).join(', ') : t('conds_none'); }
-
-  function showAlert(flag) {
-    if (!flag) return;
-    const w = $('#alert'), em = flag.level === 'emergency';
-    w.innerHTML = `<div class="emergency ${em ? '' : 'warn'}" role="alertdialog" aria-modal="true"><div class="eh">${em ? '🚨' : '⚠️'} <span>${t(em ? 'rf_title' : 'warn_title')}</span></div><div class="eb">
-      ${flag.keys.map(k => `<p>${esc(t(k, { v: flag.v }))}</p>`).join('')}
-      ${em ? `<p class="small"><b>${esc(t('rf_numbers'))}</b></p><a class="btn block callbtn" href="tel:907">📞 ${t('rf_call')}</a>` : ''}
-      <button class="btn block ghost" style="margin-top:10px" data-action="close-alert">${t('rf_ok')}</button></div></div>`;
-    w.hidden = false;
-  }
-
-  /* ---------- router ---------- */
-  const ROUTES = { onboarding: rOnboarding, home: rHome, scan: rScan, result: rResult, diary: rDiary, coach: rCoach, me: rMe, readings: rReadings, learn: rLearn, settings: rSettings };
-  const NO_FAB = ['coach', 'onboarding', 'lock', 'report', 'home'];
-  function route() {
-    let name = (location.hash.replace(/^#\/?/, '').split('?')[0]) || 'home';
-    const nav = $('#bottomnav'), fab = $('#fab');
-    document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
-    $('#langBtn').textContent = t('lang_toggle');
-    if (DB.locked) { nav.hidden = true; fab.hidden = true; document.body.classList.add('nonav'); S.route = 'lock'; $('#view').innerHTML = window.NolaFeatures.lockScreen(); setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 50); return; }
-    if (!profile() && name !== 'onboarding') { location.replace('#/onboarding'); name = 'onboarding'; }
-    if (!ROUTES[name]) name = 'home';
-    if (name === 'result' && !S.result) name = 'scan';
-    nav.hidden = name === 'onboarding'; fab.hidden = NO_FAB.includes(name); document.body.classList.toggle('nonav', nav.hidden);
-    const sec = { home: 'home', health: 'health', diary: 'health', readings: 'health', glucose: 'health', labs: 'health', report: 'health', meds: 'health', plan: 'health', scan: 'scan', result: 'scan', coach: 'coach' }[name] || 'me';
-    nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.nav === sec));
-    $('#brandName').textContent = 'NOLA HEALTH';
-    S.route = name;
-    $('#toast').classList.remove('show');
-    const v = $('#view'); v.innerHTML = ROUTES[name]();
-    if (S._scrollTop !== false) { window.scrollTo(0, 0); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
-    S._scrollTop = true;
-    afterRender(name); net();
-  }
-  function rerender() { S._scrollTop = false; const y = window.scrollY; route(); window.scrollTo(0, y); }
-  function afterRender(name) {
-    if (name === 'coach') { const v = $('#chatEnd'); if (v) v.scrollIntoView({ block: 'end' }); }
-  }
-
-  /* ---------- ONBOARDING (v3.1: 4 steps — personal, conditions, medicines, food & goals) ---------- */
-  const OB_STEPS = 4;
-  const COND_I = { t1d: '💉', t2d: '🩸', dm_unknown: '🩸', pre: '📈', gdm: '🤰', htn: '❤️', chol: '🧈', heart: '🫀', kidney: '🫘', liver: '🟤', anemia: '🩸', obesity: '⚖️', digestive: '🌀', other: '📝', unsure: '🤔', none: '✅' };
-  function obInit(edit) {
-    const pr = profile();
-    S.ob = { step: edit ? 1 : 0, edit: !!edit, d: edit && pr ? JSON.parse(JSON.stringify(pr)) : { conditions: [], condDetails: {}, allergies: [], medAllergies: [], restrictions: [], prefs: ['ethiopian'], goals: [], activity: 'light', gender: '', unit: settings().unit, medList: [], consent: false } };
-    const d = S.ob.d; d.condDetails = d.condDetails || {}; d.medList = d.medList || []; d.medAllergies = d.medAllergies || [];
-    if (edit) d.consent = true;
-  }
-  const inp = (k, label, type = 'text', extra = '') => `<label class="f" for="ob_${k}">${t(label)}</label><input class="in" id="ob_${k}" type="${type}" data-bind="${k}" value="${esc(S.ob.d[k] ?? '')}" ${extra}>`;
-  const chips = (k, opts, multi = true, prefix = '') => `<div class="chips">${opts.map(o => { const on = multi ? (S.ob.d[k] || []).includes(o) : S.ob.d[k] === o; return `<button type="button" class="chip ${on ? 'on' : ''}" data-action="ob-chip" data-k="${k}" data-v="${o}" data-multi="${multi ? 1 : ''}" aria-pressed="${on}">${t(prefix + o)}</button>`; }).join('')}</div>`;
-  function obProgress(step) {
-    const lab = ['ob_p1', 'ob_p2', 'ob_p3', 'ob_p4'];
-    return `<div class="small muted" style="margin-top:8px" id="obStepTxt">${t('ob_step', { n: step, t: OB_STEPS })}</div><div class="progress"><div style="width:${step / OB_STEPS * 100}%"></div></div>
-      <ol class="ob-steps" aria-label="${t('v3_steps')}">${lab.map((k, i) => `<li class="${i + 1 < step ? 'done' : i + 1 === step ? 'on' : ''}"><span>${i + 1 < step ? '✓' : i + 1}</span>${t(k)}</li>`).join('')}</ol>`;
-  }
-  function rOnboarding() {
-    if (!S.ob) obInit(false);
-    const { step, d } = S.ob;
-    if (step === 0) return `${window.NolaV3 ? window.NolaV3.langPicker(true) : ''}<div class="hero"><div class="plate"></div><div style="font-size:42px">🥗</div><h1 id="obWelcome">${t('ob_welcome_title')}</h1><p>${t('ob_welcome_body')}</p></div>
-      <div class="trust"><div><i>🔬</i>${t('ob_trust1')}</div><div><i>📶</i>${t('ob_trust2')}</div><div><i>🔒</i>${t('ob_trust3')}</div></div>
-      <button class="btn block" data-action="ob-next" id="obStart">${t('ob_start')} →</button>
-      <p class="tiny muted center" style="margin-top:14px">${t('disclaimer')}</p>`;
-    let body = '';
-    const titles = ['', 'ob_s_basic', 'ob_s_cond', 'ob_s_meds', 'ob_s_food'];
-    if (step === 1) {
-      const b = E.bmi(d);
-      body = `<p class="muted small">${t('ob_s1_intro')}</p>` + inp('name', 'f_name', 'text', 'autocomplete="name"') + `<div class="grid2"><div>${inp('dob', 'f_dob', 'date')}</div><div>${inp('age', 'f_age', 'number', 'min="1" max="119" inputmode="numeric"')}</div></div>
-      <div class="grid2"><div>${inp('weight', 'f_weight', 'number', 'min="20" max="300" step="0.1" inputmode="decimal"')}</div><div>${inp('height', 'f_height', 'number', 'min="100" max="230" inputmode="numeric"')}</div></div>
-      <div id="bmiLive" class="small muted" style="margin-top:6px">${b ? `${t('bmi')}: <b>${b}</b> — ${t('bmi_' + E.bmiCat(b))}` : ''}</div><p class="tiny muted">${t('ob_bmi_note')}</p>
-      <label class="f">${t('f_gender')} <span class="muted small">(${t('optional')})</span></label>${chips('gender', ['female', 'male', 'na'], false, 'g_')}<p class="tiny muted">${t('ob_gender_why')}</p>`;
-    }
-    if (step === 2) {
-      const sel = d.conditions || [];
-      body = `<p class="muted">${t('ob_cond_q')}</p><p class="tiny muted">ℹ️ ${t('ob_cond_never')}</p>
-      <div class="cond-cards" id="condCards">${CONDS.map(c => { const on = sel.includes(c); return `<div class="cond ${on ? 'on' : ''}" data-cond="${c}"><button type="button" class="cond-btn" data-action="ob-chip" data-k="conditions" data-v="${c}" data-multi="1" aria-pressed="${on}"><span class="cond-i">${COND_I[c] || '•'}</span><span class="cond-l">${t('c_' + c)}</span><span class="cond-ck">${on ? '✓' : ''}</span></button>
-        ${on && !['none', 'unsure'].includes(c) ? `<input class="in sm" data-cdet="${c}" placeholder="${esc(t(c === 'other' ? 'ob_cond_other_ph' : 'ob_cond_det_ph'))}" value="${esc((d.condDetails || {})[c] || '')}" maxlength="160" aria-label="${esc(t('ob_cond_det_ph'))}">` : ''}</div>`; }).join('')}</div>
-      ${sel.includes('unsure') ? `<div class="banner green small">🤔 ${t('ob_unsure_note')}</div>` : ''}`;
-    }
-    if (step === 3) body = window.NolaV31 ? window.NolaV31.medEditor('ob') : '';
-    if (step === 4) {
-      const wGoal = (d.goals || []).some(g => ['lose', 'gain', 'maintain'].includes(g));
-      body = `<h3 class="ob-h">🥜 ${t('f_allergies')}</h3>${chips('allergies', ['gluten', 'dairy', 'egg', 'peanut', 'fish', 'legume'], true, 'a_')}${inp('allergyOther', 'f_allergy_other')}
-      <h3 class="ob-h">💊 ${t('f_med_allergies')}</h3>${chips('medAllergies', ['penicillin', 'sulfa', 'nsaid', 'aspirin'], true, 'ma_')}${inp('medAllergyOther', 'f_med_allergy_other')}
-      <h3 class="ob-h">🚫 ${t('f_avoid')}</h3>${inp('avoid', 'f_avoid_ph')}
-      <h3 class="ob-h">🍽️ ${t('f_restrictions')}</h3>${chips('restrictions', ['fasting', 'halal', 'vegetarian', 'vegan', 'glutenfree', 'noalcohol', 'lowsalt'], true, 'r_')}
-      <h3 class="ob-h">😋 ${t('f_prefs')}</h3>${chips('prefs', ['ethiopian', 'international', 'spicy'], true, 'p_')}${inp('fav', 'f_fav')}
-      <h3 class="ob-h">🚶 ${t('f_activity')}</h3><div class="opt-list">${['sed', 'light', 'mod', 'active'].map(a => `<div class="opt ${d.activity === a ? 'on' : ''}" data-action="ob-chip" data-k="activity" data-v="${a}">${{ sed: '🪑', light: '🚶', mod: '🏃', active: '⛹️' }[a]} ${t('act_' + a)}</div>`).join('')}</div>
-      <h3 class="ob-h">🎯 ${t('f_goals')}</h3>${chips('goals', ['glucose', 'bp', 'chol', 'maintain', 'lose', 'gain', 'nutrition', 'eat', 'energy'], true, 'goal_')}
-      ${wGoal ? inp('targetWeight', 'f_target_weight', 'number', 'step="0.1" inputmode="decimal"') : ''}
-      <details class="card tight ob-nums" ${d.bpSys || d.glucose || d.hba1c ? 'open' : ''}><summary>📊 ${t('ob_s_numbers')} <span class="tiny muted">(${t('optional')})</span></summary><p class="muted small">${t('ob_numbers_hint')}</p>
-      <label class="f">${t('f_bp')}</label><div class="grid2"><div>${inp('bpSys', 'f_bp_sys', 'number', 'inputmode="numeric" placeholder="120"')}</div><div>${inp('bpDia', 'f_bp_dia', 'number', 'inputmode="numeric" placeholder="80"')}</div></div>
-      ${E.has(d, 'htn') ? inp('bpSince', 'f_bp_since', 'number', 'inputmode="numeric" placeholder="2020"') : ''}
-      <label class="f">${t('f_glucose_unit')}</label><div class="seg">${['mg', 'mmol'].map(u => `<button type="button" class="${d.unit === u ? 'on' : ''}" data-action="ob-chip" data-k="unit" data-v="${u}">${u === 'mg' ? 'mg/dL' : 'mmol/L'}</button>`).join('')}</div>
-      <div class="grid2"><div>${inp('glucose', 'f_glucose', 'number', `step="0.1" inputmode="decimal" placeholder="${d.unit === 'mmol' ? '5.5' : '100'}"`)}</div><div>${inp('hba1c', 'f_hba1c', 'number', 'step="0.1" inputmode="decimal" placeholder="6.5"')}</div></div>
-      <div class="grid2"><div>${inp('cholTotal', 'f_chol_total', 'number', 'inputmode="numeric"')}</div><div>${inp('ldl', 'f_ldl', 'number', 'inputmode="numeric"')}</div><div>${inp('hdl', 'f_hdl', 'number', 'inputmode="numeric"')}</div><div>${inp('trig', 'f_trig', 'number', 'inputmode="numeric"')}</div></div></details>
-      ${S.ob.edit ? '' : `<label class="check"><input type="checkbox" id="obConsent" data-bind="consent" ${d.consent ? 'checked' : ''}><span class="small">${t('ob_consent')}</span></label>`}`;
-    }
-    return `${obProgress(step)}
-      <h1>${t(titles[step])}</h1><form id="obForm" onsubmit="return false">${body}</form>
-      <div class="ob-nav"><button class="btn ghost" data-action="ob-back">${t('back')}</button>
-      <button class="btn grow" data-action="ob-next" id="obNext">${step === OB_STEPS ? (S.ob.edit ? t('save') : t('ob_finish')) : t('next') + ' →'}</button></div>`;
-  }
-  function obValidate() {
-    const { step, d } = S.ob;
-    if (step === 1) { if (!(d.name || '').trim()) return t('ob_need_name'); if (!d.dob && !(+d.age > 0)) return t('ob_need_body'); if (!(+d.weight >= 20 && +d.weight <= 300) || !(+d.height >= 90 && +d.height <= 240)) return t('ob_need_body'); }
-    if (step === 3) { if (window.NolaV31) window.NolaV31.medAutoAdd('ob'); if (!d.noMeds && !(d.medList || []).length) return t('ob_need_meds'); }
-    if (step === 4 && !S.ob.edit && !d.consent) return t('ob_need_consent');
+  /* ---------- medicines: general information (never advice to change) ---------- */
+  const refOf = m => (m.medId && MD.byId[m.medId]) || MD.find(m.name || '');
+  const medName = m => { const r = m.medId && MD.byId[m.medId]; return r ? (L() === 'am' ? r.am + ' (' + r.en + ')' : r.en) : m.name; };
+  function allergyHit(ref, pr) {
+    const ma = pr.medAllergies || [], oth = (pr.medAllergyOther || '').toLowerCase();
+    if (ma.includes('penicillin') && ref.id === 'amoxicillin') return t('ma_penicillin');
+    if (ma.includes('aspirin') && ref.id === 'aspirin') return t('ma_aspirin');
+    if (ma.includes('nsaid') && (ref.cls === 'nsaid' || ref.id === 'aspirin')) return t('ma_nsaid');
+    if (oth && oth.split(/[,;]+/).map(s => s.trim()).filter(s => s.length > 3).some(s => ref.en.toLowerCase().includes(s))) return pr.medAllergyOther;
     return null;
   }
-  function obFinish() {
-    const d = S.ob.d; const old = profile();
-    ['weight', 'height', 'age', 'targetWeight', 'bpSys', 'bpDia', 'glucose', 'hba1c', 'cholTotal', 'ldl', 'hdl', 'trig', 'bpSince'].forEach(k => { if (d[k] !== '' && d[k] != null) d[k] = +d[k]; });
-    if (d.dob) d.age = E.age(d);
-    d.conditions = (d.conditions || []).filter(c => c !== 'none' || d.conditions.length === 1);
-    Object.keys(d.condDetails || {}).forEach(c => { if (!d.conditions.includes(c) || !String(d.condDetails[c]).trim()) delete d.condDetails[c]; });
-    if (d.noMeds) d.medList = [];
-    if (window.NolaV31) window.NolaV31.syncMeds(d);
-    d.v31 = 1; d.updated = Date.now(); if (!d.created) d.created = Date.now();
-    DB.set('profile', d);
-    saveSettings({ unit: d.unit || 'mg' });
-    const rs = readings().slice(); const now = Date.now();
-    let flag = null;
-    if (!old || +old.weight !== +d.weight) rs.push({ id: uid(), type: 'weight', ts: now, kg: +d.weight });
-    if (d.bpSys && d.bpDia && (!old || old.bpSys !== d.bpSys || old.bpDia !== d.bpDia)) { rs.push({ id: uid(), type: 'bp', ts: now, sys: d.bpSys, dia: d.bpDia }); flag = E.checkBP(d.bpSys, d.bpDia); }
-    if (d.glucose && (!old || old.glucose !== d.glucose)) { const mg = E.toMgdl(d.glucose, d.unit); rs.push({ id: uid(), type: 'glucose', ts: now, mg, ctx: 'fasting' }); flag = flag || E.checkGlucose(mg, d.unit); }
-    DB.set('readings', rs);
-    const edit = S.ob.edit; S.ob = null;
-    location.hash = edit ? '#/me' : '#/plan?first=1';
-    if (edit) setTimeout(() => toast(t('profile_saved')), 80);
-    if (flag) setTimeout(() => showAlert(flag), 300);
+  function infoLines(m, pr) {
+    const ref = refOf(m), out = [];
+    if (!ref) { out.push(t('md_unknown', { n: m.name || '' })); return out; }
+    const c = MD.CLS[ref.cls] || {};
+    if (c.use) out.push(t('md_used_for', { u: t(c.use) }));
+    (c.notes || []).forEach(k => out.push('🍽️ ' + t(k)));
+    const al = allergyHit(ref, pr || {}); if (al) out.push('⚠️ ' + t('md_allergy_warn', { a: al }));
+    return out;
   }
-
-  /* ---------- HOME ---------- */
-  function todaysTotals(day) { const ms = meals().filter(m => dayKey(m.ts) === day); return { ms, tot: E.mealTotals(ms.flatMap(m => m.items)) }; }
-  function latest(type) { return readings().filter(r => r.type === type).sort((a, b) => b.ts - a.ts)[0]; }
-  function readingBanners() {
-    const out = []; const recent = r => r && Date.now() - r.ts < 3 * 864e5;
-    const bp = latest('bp'), g = latest('glucose');
-    [recent(bp) && E.checkBP(bp.sys, bp.dia), recent(g) && E.checkGlucose(g.mg, settings().unit)].forEach(f => {
-      if (f) out.push(`<div class="banner ${f.level === 'emergency' ? 'red' : 'amber'}" data-action="show-flag" data-flag='${esc(JSON.stringify(f))}'>${f.level === 'emergency' ? '🚨' : '⚠️'} <b>${t(f.level === 'emergency' ? 'rf_title' : 'warn_title')}</b><br>${esc(t(f.keys[0], { v: f.v })).slice(0, 140)}…</div>`);
+  function medLines(q, pr) {
+    const s = ' ' + MD.norm(q) + ' ', mine = pr.medList || [];
+    let hits = mine.filter(m => { const r = refOf(m); const keys = [MD.norm(m.name || '')].concat(r ? [MD.norm(r.en), MD.norm(r.am), r.id.replace(/_/g, ' '), MD.norm(r.en).split(' ')[0]] : []); return keys.some(k => k && k.length >= 4 && s.includes(' ' + k + ' ')); });
+    const other = MD.find(q); if (other && !hits.some(m => refOf(m) === other)) hits.push({ name: other.en, medId: other.id, notMine: true });
+    const out = [];
+    if (!hits.length && /\bmy (medicines?|medications?|pills?|tablets?)\b|መድሃኒቶቼ|መድሃኒቴ/i.test(q)) hits = mine;
+    if (!hits.length && !mine.length) out.push(t('md_ai_none'));
+    hits.slice(0, 3).forEach(m => { out.push('**' + medName(m) + '**' + (m.notMine ? ' — ' + t('md_ai_notmine') : '')); infoLines(m, pr).forEach(l => out.push('• ' + l)); });
+    if (/\b(when|what time|morning|night|evening|before|after|with food|empty stomach|timing|miss(ed)?|forgot)\b|ሰዓት|መቼ|ጠዋት|ማታ|ከምግብ/i.test(q)) out.push('🕒 ' + t('mn_timing'));
+    if (hits.length) out.push(t('mn_ask'));
+    return out;
+  }
+  window.NolaMedInfo = { medLines, infoLines };
+  function parseLegacyMeds(str) {
+    return String(str || '').split(/[,;\n]+/).map(x => x.trim()).filter(Boolean).map(part => {
+      const ref = MD.find(part), dm = part.match(/(\d+(?:[.,]\d+)?\s*(?:mg|mcg|µg|g|iu|units?|ml)\b.*)$/i);
+      return { id: uid(), medId: ref ? ref.id : null, name: ref ? ref.en : (part.replace(dm ? dm[1] : '', '').trim() || part), dose: dm ? dm[1].trim() : '', freq: '', reason: '' };
     });
-    return out.join('');
   }
-  function rHome() {
-    const pr = profile(), T = E.targets(pr), today = dayKey(Date.now()), { ms, tot } = todaysTotals(today);
-    const b = E.bmi(pr), tip = TIPS[Math.floor(Date.now() / 864e5) % TIPS.length];
-    const mini = (k, label, unit, max, lim = true) => `<div class="mini">${CH.ring(tot[k], max, 62, CH.fmt(tot[k]), '', lim && tot[k] > max ? CH.C.orange : k === 'fb' ? CH.C.teal2 : CH.C.teal)}<b>${label}</b>${R(max)} ${unit}</div>`;
-    const remain = T.kcal - tot.kcal;
-    const lr = ['bp', 'glucose', 'weight'].map(ty => { const r = latest(ty); return `<div class="stat"><span>${t('log_' + ty)}</span><b>${r ? (ty === 'bp' ? r.sys + '/' + r.dia + ' mmHg' : ty === 'glucose' ? fmtG(r.mg) : r.kg + ' kg') : '—'}</b></div>`; }).join('');
-    return `<div class="greet"><div><div class="muted small">${new Date().toLocaleDateString(L() === 'am' ? 'am-ET' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</div><h1>${t('hello', { name: esc((pr.name || '').split(' ')[0]) })}</h1></div></div>
-      ${readingBanners()}
-      <div class="card"><h3 style="margin:0">${t('dash_today')}</h3><div class="tiny muted">✓ ${t('dash_targets_basis')}</div>
-        <div class="kcal-card" style="margin-top:10px">${CH.ring(tot.kcal, T.kcal, 124, CH.fmt(tot.kcal), '/ ' + T.kcal + ' kcal')}
-          <div><div class="muted small">${t('n_kcal')}</div><div style="font-size:22px;font-weight:800">${remain >= 0 ? R(remain) : R(-remain)} <span class="small muted">kcal ${remain >= 0 ? t('left') : t('over')}</span></div>
-          <div class="small muted" style="margin-top:6px">${t('n_p')}: <b>${R(tot.p)}</b> / ${T.p} g · ${t('n_as')}: <b>${R(tot.as)}</b> / ${T.as} g</div></div></div>
-        <div class="minis">${mini('c', t('n_c'), 'g', T.c)}${mini('na', t('n_na').split(' ')[0], 'mg', T.na)}${mini('sf', t('n_sf'), 'g', T.sf)}${mini('fb', t('n_fb'), 'g', T.fb, false)}</div>
-        <details style="margin-top:12px"><summary class="small">${t('dash_why')}</summary><p class="small muted">${esc(t('why_body', { loss: T.loss ? t('why_loss') : '', carbPct: T.carbPct, dm: T.dm ? t('why_dm') : '', na: T.na, naSrc: T.naSrc, sfPct: T.sfPct, sfSrc: T.sfSrc, as: T.as }))}</p></details>
-      </div>
-      <a class="cta" href="#/scan" id="ctaScan"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.5"/></svg></span><span><b style="font-size:16px">${t('dash_scan_cta')}</b><br><span class="small" style="opacity:.9">${t('dash_scan_sub')}</span></span></a>
-      <h2>${t('dash_quick')}</h2><div class="quick"><button data-action="add-reading" data-type="bp"><span class="e">❤️</span>${t('log_bp')}</button><button data-action="add-reading" data-type="glucose"><span class="e">🩸</span>${t('log_glucose')}</button><button data-action="add-reading" data-type="weight"><span class="e">⚖️</span>${t('log_weight')}</button></div>
-      <div class="grid2" style="margin-top:4px"><div class="card tight"><div class="muted small">${t('bmi')}</div><div style="font-size:24px;font-weight:800">${b ?? '—'}</div><div class="small">${b ? t('bmi_' + E.bmiCat(b)) : ''}</div></div>
-        <div class="card tight" data-action="go" data-to="readings" style="cursor:pointer"><div class="muted small">${t('dash_latest')}</div>${lr}</div></div>
-      <h2>${t('dash_meals_today')}</h2>${ms.length ? ms.map(mealRow).join('') : `<div class="card muted small">${t('dash_no_meals')}</div>`}
-      <h2>${t('dash_explore')}</h2><div class="explore">${[['glucose', '🩸', 'hub_glucose'], ['restaurant', '🍽️', 'hub_restaurant'], ['planner', '💰', 'hub_planner'], ['academy', '🎓', 'hub_academy'], ['journey', '🌱', 'hub_journey'], ['insights', '🧠', 'hub_memory_food']].map(([r, i, k]) => `<a href="#/${r}"><span>${i}</span>${t(k)}</a>`).join('')}</div>
-      <div class="card tip"><div class="row"><span style="font-size:22px">💡</span><h3 style="margin:0">${t('dash_tip')}</h3></div><p style="margin:8px 0 4px">${esc(tr(tip))}</p><div class="tiny muted">${t('source')}: ${tip.src}</div></div>`;
-  }
-  function mealRow(m) {
-    const names = m.items.map(it => it.foodId ? fname(F.byId[it.foodId]) : it.name).join(', ');
-    const img = m.photo && !settings().lowData ? `<img src="${m.photo}" alt="">` : `<div class="ph">${{ breakfast: '🌅', lunch: '🍛', dinner: '🌙', snack: '🍎' }[m.meal] || '🍽️'}</div>`;
-    return `<div class="card tight meal" data-action="open-meal" data-id="${m.id}" style="cursor:pointer">${img}<div class="grow"><div class="row between"><b>${t('meal_' + m.meal)}</b><span class="pill ${m.verdict}">${t('verdict_' + m.verdict)}</span></div>
-      <div class="small muted" style="margin:2px 0">${esc(names)}</div><div class="tiny muted">${R(m.totals.kcal)} kcal · ${R(m.totals.c)} g ${t('n_c')} · ${R(m.totals.na)} mg Na · ${new Date(m.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div></div></div>`;
+  const medsString = d => d.noMeds ? '' : (d.medList || []).map(m => [m.name, m.dose, m.freq ? I18N.LANGS.en['mf_' + m.freq] : ''].filter(Boolean).join(' ')).join(', ');
+
+  /* ---------- migration from v1–v3.1 (keeps profile, readings, meals, PIN, settings, reminders) ---------- */
+  function migrate() {
+    const pr = profile();
+    if (pr && !pr.v4) {
+      if (!Array.isArray(pr.medList)) { pr.medsLegacy = pr.meds || ''; pr.medList = parseLegacyMeds(pr.meds); }
+      pr.condDetails = pr.condDetails || {}; pr.medAllergies = pr.medAllergies || []; pr.conditions = pr.conditions || [];
+      if (pr.medList.length) pr.meds = medsString(pr);
+      pr.v4 = 1; DB.set('profile', pr);
+    }
+    const rs = rems();
+    if (rs.some(r => !r.v4)) {
+      DB.set('reminders', rs.map(r => r.v4 ? r : Object.assign({}, r, { kind: r.kind === 'medicine' ? 'medicine' : ['checkup', 'appointment'].includes(r.kind) ? 'checkup' : 'goal', oldKind: r.kind, v4: 1 })));
+    }
   }
 
-  /* ---------- READINGS ---------- */
-  function readingSheet(type) {
-    const unit = settings().unit;
-    let f = '';
-    if (type === 'bp') f = `<div class="grid3"><div><label class="f">${t('rd_sys')}</label><input class="in" id="rdSys" type="number" inputmode="numeric" placeholder="120"></div><div><label class="f">${t('rd_dia')}</label><input class="in" id="rdDia" type="number" inputmode="numeric" placeholder="80"></div><div><label class="f">${t('rd_pulse')}</label><input class="in" id="rdPulse" type="number" inputmode="numeric" placeholder="72"></div></div>`;
-    if (type === 'glucose') f = `<label class="f">${t('rd_value')} (${unit === 'mmol' ? 'mmol/L' : 'mg/dL'})</label><input class="in" id="rdG" type="number" step="0.1" inputmode="decimal" placeholder="${unit === 'mmol' ? '5.5' : '100'}">
-      <label class="f">${t('rd_when')}</label><div class="chips" id="rdCtx">${['fasting', 'before', 'after', 'random'].map((c, i) => `<button type="button" class="chip ${i === 0 ? 'on' : ''}" data-action="rd-ctx" data-v="${c}">${t('ctx_' + c)}</button>`).join('')}</div>`;
-    if (type === 'weight') f = `<label class="f">${t('f_weight')}</label><input class="in" id="rdW" type="number" step="0.1" inputmode="decimal" value="${profile().weight || ''}">`;
-    openSheet(`<div class="row between"><h2 style="margin:0">${t('rd_add')}: ${t('log_' + type)}</h2><button class="iconbtn" data-action="close-sheet" aria-label="close">✕</button></div>${f}
-      <button class="btn block" style="margin-top:16px" data-action="save-reading" data-type="${type}" id="rdSave">${t('save')}</button>`);
+  /* ---------- UI helpers ---------- */
+  function md(s) {
+    return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').split('\n').map(l => l.trim()).filter(Boolean).map(l => /^[•\-] /.test(l) ? `<li>${l.replace(/^[•\-] /, '')}</li>` : `<p>${l}</p>`).join('').replace(/(<li>.*?<\/li>)+/g, m => `<ul>${m}</ul>`);
   }
-  function saveReading(type) {
-    const rs = readings().slice(), now = Date.now(); let flag = null, r = null;
-    if (type === 'bp') { const s = +$('#rdSys').value, d = +$('#rdDia').value, p = +$('#rdPulse').value; if (!(s >= 60 && s <= 260 && d >= 30 && d <= 180)) return toast(t('rd_invalid')); r = { type, sys: s, dia: d, pulse: p || null }; flag = E.checkBP(s, d); }
-    if (type === 'glucose') { const v = parseFloat($('#rdG').value); const mg = E.toMgdl(v, settings().unit); if (!(mg >= 15 && mg <= 700)) return toast(t('rd_invalid')); const ctx = ($('#rdCtx .chip.on') || {}).dataset?.v || 'random'; r = { type, mg, ctx }; flag = E.checkGlucose(mg, settings().unit); }
-    if (type === 'weight') { const w = parseFloat($('#rdW').value); if (!(w >= 20 && w <= 300)) return toast(t('rd_invalid')); r = { type, kg: w }; const pr = profile(); pr.weight = w; DB.set('profile', pr);
-      const prev = readings().filter(x => x.type === 'weight' && now - x.ts < 14 * 864e5 && now - x.ts > 864e5).sort((a, b) => a.ts - b.ts)[0]; if (prev && Math.abs(prev.kg - w) / prev.kg > 0.04) flag = { level: 'warn', keys: ['warn_weight'], v: '' }; }
-    rs.push(Object.assign({ id: uid(), ts: now }, r)); DB.set('readings', rs);
-    closeSheet(); toast(t('rd_saved')); rerender();
-    if (flag) setTimeout(() => showAlert(flag), 250);
+  let toastT = 0;
+  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600); }
+  function showAlert(flag) {
+    const em = flag.level === 'emergency';
+    const box = $('#alert');
+    box.innerHTML = `<div class="alert-card ${em ? 'em' : 'warn'}" role="alertdialog" aria-labelledby="alT"><h2 id="alT">${em ? '🚨 ' + t('rf_title') : '⚠️ ' + t('warn_title')}</h2>
+      ${flag.keys.map(k => `<p>${esc(t(k, { v: flag.v }))}</p>`).join('')}
+      ${em ? `<a class="btn red block" href="tel:907" id="call907">📞 ${t('rf_call')}</a><p class="small">${t('rf_numbers')}</p>` : ''}
+      <button class="btn ghost block" data-action="alert-close" id="alertOk">${t('x_ok')}</button></div>`;
+    box.hidden = false;
   }
-  function rReadings() {
-    const ty = S.rdTab, unit = settings().unit;
-    const rs = readings().filter(r => r.type === ty).sort((a, b) => b.ts - a.ts);
-    const pts = rs.slice(0, 30);
-    let chart = '';
-    if (ty === 'bp') chart = CH.line([{ pts: pts.map(r => ({ x: r.ts, y: r.sys })), color: '#166534' }, { pts: pts.map(r => ({ x: r.ts, y: r.dia })), color: '#4ade80' }], { band: [80, 130] });
-    if (ty === 'glucose') chart = CH.line([{ pts: pts.map(r => ({ x: r.ts, y: unit === 'mmol' ? r.mg / 18 : r.mg })), color: '#0369a1' }], { band: unit === 'mmol' ? [3.9, 10] : [70, 180] });
-    if (ty === 'weight') chart = CH.line([{ pts: pts.map(r => ({ x: r.ts, y: r.kg })), color: '#7c3aed' }]);
-    const val = r => ty === 'bp' ? `${r.sys}/${r.dia} mmHg${r.pulse ? ' · ♥ ' + r.pulse : ''}` : ty === 'glucose' ? `${fmtG(r.mg)} · ${t('ctx_' + (r.ctx || 'random'))}` : `${r.kg} kg`;
-    const badge = r => { const f = ty === 'bp' ? E.checkBP(r.sys, r.dia) : ty === 'glucose' ? E.checkGlucose(r.mg, unit) : null; return f ? `<span class="pill ${f.level === 'emergency' ? 'alt' : 'adjust'}">${f.level === 'emergency' ? '!' : '↑'}</span>` : ''; };
-    return `<h1>${t('rd_title')}</h1><div class="tabs">${['bp', 'glucose', 'weight'].map(x => `<button class="chip ${x === ty ? 'on' : ''}" data-action="rd-tab" data-v="${x}">${t('log_' + x)}</button>`).join('')}</div>
-      <div class="card">${chart || `<p class="muted center">${t('rd_none')}</p>`}${ty === 'bp' ? '<div class="tiny muted">— systolic &nbsp; — diastolic &nbsp; ▭ target band (AHA)</div>' : ty === 'glucose' ? '<div class="tiny muted">▭ ADA target range 70–180 mg/dL</div>' : ''}</div>
-      <button class="btn block" data-action="add-reading" data-type="${ty}">+ ${t('rd_add')}</button>
-      <h2>${t('rd_history')}</h2><div class="card tight">${rs.length ? rs.map(r => `<div class="stat"><span>${val(r)} ${badge(r)}<br><span class="tiny muted">${new Date(r.ts).toLocaleString()}</span></span><button class="link" data-action="del-reading" data-id="${r.id}" aria-label="${t('del')}">🗑</button></div>`).join('') : `<p class="muted small">${t('rd_none')}</p>`}</div>`;
-  }
-
-  /* ---------- SCAN ---------- */
-  function newDraft() { return { id: uid(), photo: null, items: [], meal: defaultMeal(), status: 'idle', err: null }; }
-  function rScan() {
-    if (!S.draft) S.draft = newDraft();
-    const d = S.draft, ai = AI.enabled();
-    const items = d.items.map((it, i) => itemCard(it, i)).join('');
-    const quick = [['injera_teff', 'shiro'], ['beyaynetu', 'injera_teff'], ['firfir'], ['tibs', 'injera_teff'], ['ful', 'dabo'], ['misir', 'gomen', 'injera_teff']];
-    return `${window.NolaV3 ? window.NolaV3.steps(d.items.length ? 2 : 1) : ''}<div class="row between"><h1>${t('scan_title')}</h1>${d.items.length || d.photo ? `<button class="link small" data-action="scan-reset">↺ ${t('v3_start_over')}</button>` : ''}</div>
-      <div class="seg" style="margin-bottom:12px">${['breakfast', 'lunch', 'dinner', 'snack'].map(m => `<button class="${d.meal === m ? 'on' : ''}" data-action="set-meal" data-v="${m}">${t('meal_' + m)}</button>`).join('')}</div>
-      <div class="photo-box">${d.photo ? `<img src="${d.photo}" alt="meal photo" style="${d.items.length ? 'max-height:150px' : ''}">` : `<div style="font-size:44px">📷</div><div class="muted small">${ai ? t('scan_ai_on') : ''}</div>`}
-        ${d.status === 'loading' ? `<div class="spinner"></div><div class="small">${t('scan_analyzing')}</div>` : ''}
-        <div class="scan-btns"><label class="btn"><input type="file" accept="image/*" capture="environment" id="camIn" hidden>📸 ${t('scan_take')}</label><label class="btn ghost"><input type="file" accept="image/*" id="upIn" hidden>🖼️ ${t('scan_upload')}</label></div>
-      </div>
-      ${ai ? (navigator.onLine ? `<p class="tiny muted">✨ ${t('scan_ai_on')} · ${esc(AI.cfg().model)} · ${t('scan_needs_net')}</p>` : `<div class="note">📶 ${t('scan_ai_offline')}</div>`) : `<div class="note">📴 ${t('scan_ai_off')}</div>`}
-      ${d.err ? `<div class="banner amber">${esc(d.err)}${S.lastBig && ai ? ` <button class="btn sm" data-action="scan-retry" id="scanRetry">↻ ${t('v3_retry')}</button>` : ''}</div>` : ''}
-      <div class="row between" style="margin-top:14px"><h2 style="margin:0">${t('scan_detected')}</h2><button class="btn sm soft" data-action="open-picker" id="addFoodBtn">+ ${t('scan_add_food')}</button></div>
-      ${d.items.length ? `<p class="small muted">${t('scan_correct_hint')}</p>${items}` : `<div class="card center muted small">${t('scan_empty')}<div class="chips" style="justify-content:center;margin-top:10px">${quick.map(q => `<button class="chip sm" data-action="quick-add" data-ids="${q.join(',')}">${q.map(id => fname(F.byId[id])).join(' + ')}</button>`).join('')}</div></div>`}
-      <div class="note">ℹ️ ${t('estimates_note')}</div>
-      <button class="btn block" data-action="analyze" id="analyzeBtn" ${d.items.length ? '' : 'disabled'}>${t('scan_analyze')} →</button>`;
-  }
-  function confBadge(it) {
-    if (it.confirmed) return `<span class="conf h">✓ ${t('conf_confirmed')}</span>`;
-    if (it.conf == null) return `<span class="conf u">${t('conf_user')}</span>`;
-    const c = it.conf >= 0.75 ? 'h' : it.conf >= 0.5 ? 'm' : 'l';
-    return `<span class="conf ${c}" title="${t('confidence')}">${t('confidence')}: ${t({ h: 'conf_high', m: 'conf_med', l: 'conf_low' }[c])} ${R(it.conf * 100)}%</span>`;
-  }
-  function itemCard(it, i) {
-    const f = it.foodId ? F.byId[it.foodId] : null, n = E.itemNutrition(it);
-    const seg = (key, vals, labels) => `<div class="seg">${vals.map((v, j) => `<button class="${(it[key] || vals[1]) === v ? 'on' : ''}" data-action="item-set" data-i="${i}" data-k="${key}" data-v="${v}">${labels[j]}</button>`).join('')}</div>`;
-    const lv = [t('level_low'), t('level_normal'), t('level_high')];
-    const portions = f ? f.portions.map(p => p[0]) : [0.5, 1, 1.5, 2];
-    return `<div class="item" data-item="${i}"><div class="hd"><div><div class="nm">${esc(f ? fname(f) : it.name)}</div>
-        <div class="meta">${f ? esc(tr(f.base)) : t('scan_ai_item')}${it.aiName && f && !f.name.en.toLowerCase().includes(it.aiName.toLowerCase()) ? ` · AI: “${esc(it.aiName)}”` : ''}</div></div>
-        <div class="row" style="gap:6px">${confBadge(it)}<button class="iconbtn" data-action="item-del" data-i="${i}" aria-label="${t('del')}">✕</button></div></div>
-      <div class="ctl"><div class="lbl">${t('scan_portion')}</div><div class="chips">${portions.map(m => `<button class="chip sm ${Math.abs(it.mult - m) < 0.01 ? 'on' : ''}" data-action="item-set" data-i="${i}" data-k="mult" data-v="${m}">${f ? portionLabel(f, m) : E.frac(m) + '×'}</button>`).join('')}</div></div>
-      ${variantRow(f, i)}<details class="more-ctl" ${settings().simple ? '' : 'open'}><summary class="small">${t('v3_more_details')}</summary>
-      ${(f ? f.oil > 0 : true) ? `<div class="ctl grid2"><div><div class="lbl">${t('scan_oil')}</div>${seg('oil', ['low', 'normal', 'high'], lv)}</div>${f && f.oil > 0 ? `<div><div class="lbl">${t('oil_type')}</div><div class="seg">${['veg', 'kibbeh'].map(v => `<button class="${(it.oilType || f.oilType) === v ? 'on' : ''}" data-action="item-set" data-i="${i}" data-k="oilType" data-v="${v}">${v === 'veg' ? '🌻 ' + t('oil_veg_s') : '🧈 ' + t('oil_kibbeh_s')}</button>`).join('')}</div></div>` : '<div></div>'}</div>` : ''}
-      ${(f ? f.salt : true) ? `<div class="ctl"><div class="lbl">${t('scan_salt')}</div>${seg('salt', ['low', 'normal', 'high'], lv)}</div>` : ''}
-      ${f ? measureCtl(f, it, i) : ''}${f && F.methodGroup(f) ? `<div class="ctl"><div class="lbl">${t('scan_method')}</div><div class="chips">${F.METHODS[F.methodGroup(f)].map(([m]) => `<button class="chip sm ${it.method === m ? 'on' : ''}" data-action="item-method" data-i="${i}" data-v="${m}">${t('m_' + F.methodGroup(f) + '_' + m)}</button>`).join('')}</div></div>` : ''}
-      <div class="ctl"><div class="lbl">${t('scan_ingredients')}</div><input class="in" style="min-height:38px;padding:8px 10px" data-action-input="item-ing" data-i="${i}" value="${esc(it.ingredients || '')}" placeholder="${f && f.id === 'shiro' ? 'chickpea flour, onion, oil, berbere' : '…'}">${it.cooking ? `<div class="tiny muted" style="margin-top:4px">${t('scan_cooking')}: ${esc(it.cooking)}</div>` : ''}</div>
-      </details>
-      <div class="row between" style="margin-top:10px"><span class="small"><b>${R(n.kcal)}</b> kcal · <b>${R(n.c)}</b> g ${t('n_c')} · <b>${R(n.na)}</b> mg Na</span><button class="link small" data-action="open-picker" data-replace="${i}">⇄ ${t('scan_replace')}</button></div>
-      ${f && f.note ? `<div class="tiny muted" style="margin-top:6px">💬 ${esc(tr(f.note))}</div>` : ''}
-      <label class="check sm" style="margin-top:8px"><input type="checkbox" data-action-change="item-confirm" data-i="${i}" ${it.confirmed ? 'checked' : ''}><span class="small">${t('scan_confirm_item')}</span></label>
-      <div class="tiny muted" style="margin-top:4px">${t('source')}: ${esc(f ? f.src : 'AI vision estimate')}</div></div>`;
-  }
-  function variantRow(f, i) {
-    const v = f && F.variantsOf(f.id); if (!v || !v.ids.length) return '';
-    return `<div class="ctl variants"><div class="lbl">${t('v3_recipes_vary', { a: R(v.min), b: R(v.max) })}</div><div class="chips">${v.ids.map(id => `<button class="chip sm" data-action="item-variant" data-i="${i}" data-v="${id}">${esc(fname(F.byId[id]))}</button>`).join('')}</div></div>`;
-  }
-  function measureCtl(f, it, i) {
-    const ms = F.measures(f); if (!ms.length) return '';
-    const cur = ms.find(x => x.u === it.mu);
-    return `<div class="ctl"><div class="lbl">${t('scan_eth_measure')}</div><div class="row wrap" style="gap:6px">${ms.map(x => `<button class="chip sm ${it.mu === x.u ? 'on' : ''}" data-action="item-measure" data-i="${i}" data-v="${x.u}">${t('u_' + x.u)}</button>`).join('')}
-      ${cur ? `<span class="stepper"><button class="iconbtn sm" data-action="item-mstep" data-i="${i}" data-v="-1" aria-label="−">−</button><b>${it.mn} ${t('u_' + cur.u)}</b><button class="iconbtn sm" data-action="item-mstep" data-i="${i}" data-v="1" aria-label="+">+</button></span><span class="tiny muted">= ${E.frac(it.mult)} × ${esc(tr(f.base))}</span>` : ''}</div></div>`;
-  }
-  function pickerList(q) {
-    let list = F.search(q);
-    if (S.pickerCat !== 'all' && !q) list = list.filter(f => f.cat === S.pickerCat);
-    return list.map(f => `<div class="food-row" data-action="pick-food" data-id="${f.id}"><div><div><b>${esc(fname(f))}</b> <span class="tiny muted">${esc(L() === 'am' ? f.name.en : f.name.am)}</span></div><div class="tiny muted">${esc(tr(f.base))}</div></div><div class="tiny muted" style="text-align:right;white-space:nowrap">${R(f.n.kcal)} kcal<br>${R(f.n.c)} g carb</div></div>`).join('') || `<p class="muted small center">—</p>`;
-  }
-  function openPicker(replaceIdx) {
-    S.pickerMode = replaceIdx != null && replaceIdx !== '' ? +replaceIdx : 'add';
-    openSheet(`<div class="row between"><h2 style="margin:0">${t(S.pickerMode === 'add' ? 'scan_add_food' : 'scan_replace')}</h2><button class="btn sm" data-action="close-sheet" id="pickerDone">${t('done')}</button></div>
-      <input class="in" id="pickSearch" placeholder="${t('scan_search_ph')}" autocomplete="off" style="margin:10px 0">
-      <div class="chips" id="pickCats" style="margin-bottom:6px">${['all', ...F.CATS].map(c => `<button class="chip sm ${S.pickerCat === c ? 'on' : ''}" data-action="pick-cat" data-v="${c}">${t('cat_' + c)}</button>`).join('')}</div>
-      <div id="pickList">${pickerList('')}</div>`);
-  }
-  function addItem(foodId) { S.draft.items.push({ foodId, mult: 1, oil: 'normal', salt: 'normal', conf: null, ingredients: '' }); }
+  function loader(on, txt) { $('#loader').hidden = !on; $('#loaderText').textContent = txt || ''; }
+  const back = (href, title) => `<div class="pagehead"><a class="backbtn" href="${href}" aria-label="${t('x_back')}">‹</a><h1>${title}</h1></div>`;
+  const chip = (k, v, label, on, extra = '') => `<button type="button" class="chip ${on ? 'on' : ''}" data-action="chip" data-k="${k}" data-v="${v}" aria-pressed="${!!on}" ${extra}>${label}</button>`;
   function compressImage(file, maxDim, q) {
     return new Promise((res, rej) => {
       const fr = new FileReader();
-      fr.onload = () => { const img = new Image(); img.onload = () => { const sc = Math.min(1, maxDim / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = R(img.width * sc); c.height = R(img.height * sc); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', q)); }; img.onerror = () => rej(new Error('image')); img.src = fr.result; };
-      fr.onerror = () => rej(fr.error); fr.readAsDataURL(file);
+      fr.onload = () => { const img = new Image(); img.onload = () => { const sc = Math.min(1, maxDim / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', q)); }; img.onerror = rej; img.src = fr.result; };
+      fr.onerror = rej; fr.readAsDataURL(file);
     });
   }
-  async function onPhoto(file) {
-    if (!file) return;
-    const low = settings().lowData, d = S.draft || (S.draft = newDraft());
-    try {
-      const big = await compressImage(file, low ? 512 : 1024, low ? 0.6 : 0.8);
-      d.photo = await compressImage(file, 360, 0.6); d.err = null;
-      S.lastBig = big;
-      if (AI.enabled() && !navigator.onLine) { d.err = t('scan_ai_offline'); rerender(); openPicker(); }
-      else if (AI.enabled()) {
-        d.status = 'loading'; rerender();
-        try { const items = await AI.recognize(big); d.items = d.items.concat(items); d.status = 'done'; if (!items.length) d.err = t('scan_ai_error', { e: 'no food found' }); }
-        catch (e) { d.status = 'error'; d.err = t('scan_ai_error', { e: e.message }); }
-        rerender(); if (d.status === 'error' || !d.items.length) openPicker();
-      } else { rerender(); openPicker(); }
-    } catch (e) { toast('Photo error: ' + e.message); }
-  }
-  function runAnalysis(items, meal, photo, savedId) {
-    const a = E.analyze(items, profile(), meal), sc = window.NolaScore.compute(a, items, profile(), meal);
-    S.result = { a, sc, items: JSON.parse(JSON.stringify(items)), meal, photo, savedId: savedId || null, ts: Date.now() };
-    location.hash = '#/result';
-  }
 
-  /* ---------- RESULT ---------- */
-  function rResult() {
-    const { a, meal, savedId, items } = S.result, T = a.targets, tt = a.totals, sh = a.share;
-    const icon = { good: '✅', adjust: '⚖️', alt: '🔄' }[a.verdict];
-    const nc = (k, unit) => `<div class="nc"><div class="v">${CH.fmt(tt[k])}<span class="small muted"> ${unit}</span></div><div class="k">${t('n_' + k)}</div></div>`;
-    const kc = { c: tt.c * 4, p: tt.p * 4, f: tt.f * 9 }, ks = kc.c + kc.p + kc.f || 1;
-    const why = a.why.map(w => `<li class="${w.good ? 'good' : w.lvl === 2 ? 'l2' : w.lvl === 1 ? 'l1' : ''}">${esc(w.text)}</li>`).join('');
-    const sc = S.result.sc || window.NolaScore.compute(a, items, profile(), meal);
-    return `${window.NolaV3 ? window.NolaV3.steps(3) : ''}<div class="row between"><h1>${t('res_title')}</h1><span class="pill info">${t('meal_' + meal)}</span></div>
-      <div class="verdict ${a.verdict}" id="verdict"><div class="vcolor" id="vcolor">${{ green: '🟢', yellow: '🟡', red: '🔴' }[sc.color]} ${t('col_' + sc.color)}</div><div class="row"><span class="vi">${icon}</span><div><div class="vt">${t('verdict_' + a.verdict)}</div><div class="small">${t('v3_verdict_' + a.verdict + '_simple')}</div></div></div>
-        <div class="tiny" style="margin-top:8px;opacity:.95">${esc(items.map(it => (it.foodId ? fname(F.byId[it.foodId]) : it.name) + ' (' + (it.mu && it.mn ? it.mn + ' ' + t('u_' + it.mu) : it.foodId ? portionLabel(F.byId[it.foodId], it.mult) : E.frac(it.mult) + '×') + ')').join(' · '))}</div></div>
-      <p class="tiny muted notdx">🩺 ${t('v3_not_dx')}</p>
-      ${window.NolaV3 ? window.NolaV3.scoreCard(sc) : ''}
-      ${a.ethiopian ? `<div class="banner" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0">🇪🇹 ${t('res_traditional')}</div>` : ''}
-      <div class="card"><h3>${t('res_why')} — ${t('res_for_you')}</h3><ul class="clean why">${why}</ul></div>
-      ${a.tips.length ? `<div class="card"><h3>💡 ${t('res_tips')}</h3><ul class="clean">${a.tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
-      ${a.alts.length ? `<div class="card"><h3>🔁 ${t('res_alts')}</h3><ul class="clean">${a.alts.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
-      <h2>${t('res_breakdown')}</h2>
-      <div class="card"><div class="donut-wrap">${CH.donut([{ v: kc.c, c: '#166534' }, { v: kc.p, c: '#f59e0b' }, { v: kc.f, c: '#7c3aed' }], 110)}
-        <div class="legend"><div class="muted small">${t('res_macro')}</div><div><i style="background:#166534"></i>${t('n_c')} ${R(kc.c / ks * 100)}%</div><div><i style="background:#f59e0b"></i>${t('n_p')} ${R(kc.p / ks * 100)}%</div><div><i style="background:#7c3aed"></i>${t('n_f')} ${R(kc.f / ks * 100)}%</div><div style="font-weight:800;font-size:16px">${R(tt.kcal)} kcal</div></div></div></div>
-      <div class="ncards">${nc('kcal', 'kcal')}${nc('p', 'g')}${nc('c', 'g')}${nc('s', 'g')}${nc('as', 'g')}${nc('f', 'g')}${nc('sf', 'g')}${nc('fb', 'g')}${nc('na', 'mg')}${nc('k', 'mg')}</div>
-      <div class="card"><h3>${t('res_vs_meal')}</h3>
-        ${CH.bar(t('n_c'), tt.c, a.carbGuide, 'g', true)}${CH.bar(t('n_na'), tt.na, T.na * sh, 'mg', true)}${CH.bar(t('n_sf'), tt.sf, T.sf * sh, 'g', true)}${CH.bar(t('n_kcal'), tt.kcal, T.kcal * sh, 'kcal', true)}${CH.bar(t('n_fb'), tt.fb, T.fb * sh, 'g', false)}</div>
-      <div class="note">ℹ️ ${t('estimates_note')}</div><p class="tiny muted">${t('res_disclaimer')}</p>
-      <div class="row" style="gap:10px;margin-top:8px">${savedId ? `<a class="btn ghost grow" href="#/diary">${t('nav_diary')}</a>` : `<button class="btn ghost" data-action="edit-meal">✎ ${t('edit')}</button><button class="btn grow" data-action="save-meal" id="saveMealBtn">${t('res_save')}</button>`}</div>`;
-  }
+  /* ---------- ROUTES ---------- */
+  const ROUTES = {};
+  const SECTION = { home: 'home', health: 'home', profile: 'home', eat: 'home', reminders: 'home', scan: 'home', doctor: 'doctor', about: 'about' };
 
-  /* ---------- DIARY ---------- */
-  function rDiary() {
-    const pr = profile(), T = E.targets(pr), day = S.diaryDate, { ms, tot } = todaysTotals(day);
-    const d = new Date(day + 'T12:00:00'); const isToday = day === dayKey(Date.now());
-    return `<h1>${t('diary_title')}</h1>
-      <div class="daynav"><button class="iconbtn" data-action="day" data-v="-1" aria-label="${t('diary_prev')}">‹</button><b>${isToday ? t('today') : d.toLocaleDateString(L() === 'am' ? 'am-ET' : 'en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}</b><button class="iconbtn" data-action="day" data-v="1" ${isToday ? 'disabled' : ''} aria-label="${t('diary_next')}">›</button></div>
-      <div class="card"><h3>${t('diary_totals')}</h3>
-        ${CH.bar(t('n_kcal'), tot.kcal, T.kcal, 'kcal', true)}${CH.bar(t('n_c'), tot.c, T.c, 'g', true)}${CH.bar(t('n_as'), tot.as, T.as, 'g', true)}${CH.bar(t('n_na'), tot.na, T.na, 'mg', true)}${CH.bar(t('n_sf'), tot.sf, T.sf, 'g', true)}${CH.bar(t('n_fb'), tot.fb, T.fb, 'g', false)}${CH.bar(t('n_p'), tot.p, T.p, 'g', false)}${T.k ? CH.bar(t('n_k'), tot.k, T.k, 'mg', false) : ''}</div>
-      ${ms.length ? ms.sort((a, b) => a.ts - b.ts).map(m => mealRow(m).replace('</div></div></div>', `</div><button class="link tiny" data-action="del-meal" data-id="${m.id}">🗑 ${t('del')}</button></div></div>`)).join('') : `<div class="card muted center small">${t('diary_empty')}<br><br><a class="btn sm" href="#/scan">+ ${t('dash_scan_cta')}</a></div>`}`;
-  }
+  /* Home: four large cards only */
+  ROUTES.home = function () {
+    const pr = profile(), next = nextReminder();
+    const cards = [
+      ['health', '❤️', 'x_c_health', 'x_c_health_d', 'cHealth'],
+      ['eat', '🥗', 'x_c_eat', 'x_c_eat_d', 'cEat'],
+      ['reminders', '⏰', 'x_c_rem', 'x_c_rem_d', 'cRem'],
+      ['scan', '📷', 'x_c_scan', 'x_c_scan_d', 'cScan'],
+    ];
+    return `<section class="welcome"><h1 id="hello">${pr ? t('x_hello', { name: esc((pr.name || '').split(' ')[0]) }) : t('x_welcome')}</h1><p>${t('x_tagline')}</p></section>
+      ${pr ? '' : `<a class="setup" href="#/profile" id="setupBtn"><span>👋</span><div><b>${t('x_setup')}</b><small>${t('x_setup_d')}</small></div><span class="arr">›</span></a>`}
+      <div class="cards4" id="homeCards">${cards.map(([r, i, k, d, id]) => `<a class="fcard" href="#/${r}" id="${id}"><span class="fi" aria-hidden="true">${i}</span><span class="ft"><b>${t(k)}</b><small>${t(d)}</small>${r === 'reminders' && next ? `<em class="fnext">⏰ ${esc(next.time)} · ${esc(next.title)}</em>` : ''}</span><span class="arr" aria-hidden="true">›</span></a>`).join('')}</div>
+      <p class="disc">🩺 ${t('x_disc')} <a href="tel:907">907</a></p>`;
+  };
 
-  /* ---------- NOLA AI (coach) ---------- */
-  function chatList() { return window.NolaInsights.memOn('chat') ? DB.get('chat', []) : (S.chatMem || (S.chatMem = [])); }
-  function saveChat(c) { c = c.slice(-60); if (window.NolaInsights.memOn('chat')) DB.set('chat', c); else S.chatMem = c; }
-  function chatCard(m) {
-    const c = m.card; if (!c) return '';
-    if (c.status !== 'pending') return `<div class="ccard done">${c.status === 'saved' ? '✓ ' + t('nai_saved') : '— ' + t('nai_dismissed')}</div>`;
-    let body = '';
-    if (c.type === 'bp') body = md(t('nai_card_bp', { v: c.sys + '/' + c.dia + (c.pulse ? ' · ♥ ' + c.pulse : '') }));
-    if (c.type === 'glucose') body = md(t('nai_card_g', { v: fmtG(c.mg) })) + `<div class="chips" style="margin-top:6px">${['fasting', 'before', 'after', 'random'].map(x => `<button class="chip sm ${c.ctx === x ? 'on' : ''}" data-action="card-ctx" data-id="${m.id}" data-v="${x}">${t('ctx_' + x)}</button>`).join('')}</div>`;
-    if (c.type === 'weight') body = md(t('nai_card_w', { v: c.kg }));
-    if (c.type === 'memory') body = md(t(c.kind === 'like' ? 'nai_card_like' : 'nai_card_dislike', { v: c.value }));
-    return `<div class="ccard"><div class="small">${body}</div><div class="row" style="gap:8px;margin-top:8px"><button class="btn sm" data-action="card-save" data-id="${m.id}">✓ ${t('nai_confirm')}</button><button class="btn sm ghost" data-action="card-no" data-id="${m.id}">${t('nai_not_now')}</button></div></div>`;
-  }
-  function botMsg(m) {
-    const why = m.why && m.why.length ? `<details class="why-box"><summary>💡 ${t('nai_why')}</summary><ul>${m.why.map(w => `<li>${esc(w)}</li>`).join('')}</ul></details>` : '';
-    const links = (m.links || []).map(([to, lab]) => `<a class="btn sm soft" href="#/${to}">${esc(lab)} →</a>`).join(' ');
-    const qn = m.queued ? `<div class="qnote ${m.queued === 'sent' ? 'sent' : ''}">${m.queued === 'sent' ? '✓ ' + t('q_sent') : '📶 ' + t('q_will_send')}</div>` : '';
-    const rt = m.retry ? `<button class="btn sm" data-action="ai-retry" data-id="${m.id}" data-q="${esc(m.retry)}">↻ ${t('v3_retry')}</button>` : '';
-    return `<div class="msg bot" data-mid="${m.id || ''}"><div class="mt">${md(m.text)}</div>${qn}${rt}${chatCard(m)}${why}${links ? `<div class="row wrap" style="gap:6px;margin-top:8px">${links}</div>` : ''}${m.sources && m.sources.length ? `<span class="src">📚 ${esc(m.sources.join(' · '))}</span>` : ''}
-      ${m.id && !m.card ? `<div class="msg-tools">${window.NolaVoice.ttsSupported ? `<button class="fbb" data-action="speak" data-id="${m.id}" aria-label="${t('voice_read')}">🔊</button>` : ''}${window.NolaFeatures.fbBtns('chat', m.id)}</div>` : ''}</div>`;
-  }
-  function rCoach() {
-    const pr = profile(), chat = chatList(), ai = AI.enabled(), V = window.NolaVoice, s = settings();
-    const qs = ['q_today', 'q_dinner', 'q_log_bp', 'q_report', 'q_breakfast', 'q_injera', 'q_fasting', 'q_soda'];
-    return `<div class="row between"><h1>✨ ${t('coach_title')}</h1><span class="pill ${ai ? 'good' : 'info'}">${ai ? '✨ ' + t('coach_ai') : '📴 ' + t('coach_offline')}</span></div>
-      <p class="tiny muted" style="margin-top:0">${t('coach_disclaimer')} ${chat.length ? `<button class="link tiny" data-action="clear-chat">↺ ${t('nai_clear')}</button>` : ''} ${window.NolaInsights.memOn('chat') ? '' : '· ' + t('nai_chat_not_saved')}</p>
-      <div class="chat" id="chat"><div class="msg bot"><div class="mt">${md(t('coach_hello', { name: (pr.name || '').split(' ')[0], conds: condLabel(pr) }))}</div><div class="tiny muted" style="margin-top:6px">${t('nai_hello_extra')}</div></div>
-        ${chat.map(m => m.role === 'user' ? `<div class="msg me">${esc(m.text)}</div>` : botMsg(m)).join('')}
-        ${S.coachBusy ? `<div class="msg bot muted" id="thinking"><span class="dots"><i></i><i></i><i></i></span> ${t('coach_thinking')}</div>` : ''}<div id="chatEnd"></div></div>
-      <div class="chatbar"><div class="sugg">${qs.map(q => `<button class="chip sm" data-action="ask" data-q="${esc(t(q))}">${t(q)}</button>`).join('')}</div>
-        <form id="chatForm"><button type="button" class="iconbtn mic ${S.listening ? 'on' : ''}" data-action="mic" id="micBtn" aria-label="${t('voice_speak')}">🎤</button><input class="in" id="chatIn" placeholder="${t(S.listening ? 'voice_listening' : 'coach_ph')}" autocomplete="off" maxlength="600"><button class="btn" id="chatSend" ${S.coachBusy ? 'disabled' : ''}>${t('coach_send')}</button></form>
-        <div class="row between tiny muted" style="margin-top:4px"><label class="row" style="gap:6px"><input type="checkbox" data-action-change="voice-replies" ${s.voiceReplies ? 'checked' : ''}> 🔊 ${t('voice_replies')}</label><span>${V.sttSupported ? (L() === 'am' ? 'am-ET' : 'en-US') : t('voice_no_stt')}</span></div></div>`;
-  }
-  function pushBot(chat, o) { const m = Object.assign({ id: uid(), role: 'bot', ts: Date.now() }, o); chat.push(m); return m; }
-  async function ask(q) {
-    q = (q || '').trim(); if (!q || S.coachBusy) return;
-    const pr = profile(), chat = chatList().slice(), B = window.NolaBrain, unit = settings().unit;
-    chat.push({ role: 'user', text: q, ts: Date.now() });
-    const flag = E.checkText(q, unit), p = B.parse(q, unit);
-    let speakMsg = null;
-    if (flag) {
-      speakMsg = pushBot(chat, { text: '🚨 ' + t('rf_title') + '\n' + flag.keys.map(k => t(k, { v: flag.v })).join('\n') + '\n' + t('rf_numbers'), sources: ['ADA', 'AHA'] });
-      setTimeout(() => showAlert(flag), 200);
-    }
-    if (p && ['bp', 'glucose', 'weight'].includes(p.kind)) {
-      pushBot(chat, { text: t('nai_heard_' + p.kind), card: Object.assign({ type: p.kind, status: 'pending' }, p) });
-    } else if (p && (p.kind === 'like' || p.kind === 'dislike')) {
-      pushBot(chat, { text: t('nai_heard_pref'), card: { type: 'memory', kind: p.kind, value: p.value, status: 'pending' } });
-    } else if (p && p.kind === 'cmd' && !flag) {
-      const c = p.cmd;
-      if (c === 'scan') { pushBot(chat, { text: t('nai_open_scan') }); saveChat(chat); location.hash = '#/scan'; return; }
-      if (c === 'record_bp' || c === 'record_glucose') { speakMsg = pushBot(chat, { text: t('nai_open_form') }); saveChat(chat); rerender(); readingSheet(c === 'record_bp' ? 'bp' : 'glucose'); return; }
-      const r = c === 'today' ? B.today(pr) : c === 'dinner' ? B.dinner(pr) : c === 'report' ? B.report(pr, unit) : c === 'restaurant' ? { text: t('nai_restaurant'), why: B.personalWhy(pr), links: [['restaurant', t('hub_restaurant')]] } : { text: t('nai_budget'), why: [t('pl_why_cheap')], links: [['planner', t('hub_planner')]] };
-      speakMsg = pushBot(chat, Object.assign({ topic: c }, r));
-    } else if (!flag) {
-      const lab = window.NolaV3 && window.NolaV3.labAnswer(q, pr);
-      if (lab) speakMsg = pushBot(chat, lab);
-      else if (AI.enabled() && !navigator.onLine) {
-        const qid = window.NolaV3.queue.add(q), a = B.answer(q, pr);
-        speakMsg = pushBot(chat, { text: t('q_offline_now') + '\n\n' + a.text, sources: a.sources, why: a.why, topic: a.topic, queued: qid });
-      } else if (AI.enabled()) {
-        saveChat(chat); S.coachBusy = true; rerender();
-        speakMsg = await askAI(q, chat);
-        S.coachBusy = false;
-      } else {
-        const a = B.answer(q, pr);
-        speakMsg = pushBot(chat, { text: a.text, sources: a.sources, why: a.why, topic: a.topic });
-      }
-    }
-    saveChat(chat);
-    if (S.route === 'coach') rerender();
-    if (speakMsg && settings().voiceReplies) speak(speakMsg.text);
-  }
-  async function askAI(q, chat, late) {
-    const pr = profile(), B = window.NolaBrain, unit = settings().unit;
-    try {
-      const T = E.targets(pr), hist = chat.filter(m => m.text).slice(settings().lowData ? -4 : -10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
-      if (late) hist.push({ role: 'user', content: q });
-      let txt = (await AI.chat([{ role: 'system', content: AI.coachSystem(pr, T, L()) + '\n' + B.context(pr, unit) }, ...hist])).trim();
-      let why = []; const mm = txt.match(/\n\s*\**(Why|ለምን)\**\s*[:：]\s*([\s\S]+)$/i); if (mm) { why = [mm[2].trim()]; txt = txt.slice(0, mm.index).trim(); }
-      return pushBot(chat, { text: (late ? t('q_late_prefix', { q: q.slice(0, 80) }) + '\n' : '') + txt, why, sources: ['AI · ' + AI.cfg().model], topic: window.NolaCoach.detect(q) });
-    } catch (e) {
-      const a = B.answer(q, pr);
-      return pushBot(chat, { text: t('coach_err', { e: e.message }) + '\n\n' + a.text, sources: a.sources, why: a.why, topic: a.topic, retry: q });
-    }
-  }
-  async function runQueued(items) {
-    const chat = chatList().slice();
-    chat.forEach(m => { if (m.queued && m.queued !== 'sent' && items.some(it => it.id === m.queued)) m.queued = 'sent'; });
-    S.coachBusy = true; if (S.route === 'coach') rerender();
-    for (const it of items) await askAI(it.q, chat, true);
-    S.coachBusy = false; saveChat(chat); if (S.route === 'coach') rerender();
-  }
-  function speak(text) { if (!window.NolaVoice.speak(text, L())) toast(t('voice_no_tts')); }
-  function cardAction(id, save) {
-    const chat = chatList().slice(), m = chat.find(x => x.id === id); if (!m || !m.card || m.card.status !== 'pending') return;
-    const c = m.card, B = window.NolaBrain, unit = settings().unit; c.status = save ? 'saved' : 'dismissed';
-    let flag = null, g = null;
-    if (save) {
-      const rs = readings().slice(), now = Date.now();
-      if (c.type === 'bp') { rs.push({ id: uid(), type: 'bp', ts: now, sys: c.sys, dia: c.dia, pulse: c.pulse || null, src: 'chat' }); DB.set('readings', rs); g = B.bpGuidance(c.sys, c.dia); flag = E.checkBP(c.sys, c.dia); }
-      if (c.type === 'glucose') { rs.push({ id: uid(), type: 'glucose', ts: now, mg: c.mg, ctx: c.ctx || 'random', src: 'chat' }); DB.set('readings', rs); g = B.glucoseGuidance(c.mg, c.ctx || 'random', unit); flag = E.checkGlucose(c.mg, unit); }
-      if (c.type === 'weight') { rs.push({ id: uid(), type: 'weight', ts: now, kg: c.kg, src: 'chat' }); DB.set('readings', rs); const pr = profile(); pr.weight = c.kg; DB.set('profile', pr); g = { text: t('nai_w_saved', { v: c.kg }), why: [t('nai_why_w')], sources: ['WHO'] }; }
-      if (c.type === 'memory') { B.remember(c.kind, c.value); g = { text: t('nai_pref_saved', { v: c.value }), why: [t('nai_why_pref')] }; }
-      if (g) pushBot(chat, Object.assign({ topic: c.type }, g));
-    }
-    saveChat(chat); rerender();
-    if (flag) setTimeout(() => showAlert(flag), 250);
-    if (g && settings().voiceReplies) speak(g.text);
-  }
-
-  /* ---------- ME / SETTINGS / LEARN ---------- */
-  function rMe() {
-    const pr = profile(), b = E.bmi(pr), T = E.targets(pr);
+  /* My Health */
+  ROUTES.health = function () {
+    const pr = profile();
+    if (!pr) return back('#/home', '❤️ ' + t('x_c_health')) + `<div class="card center"><p>${t('x_no_profile')}</p><a class="btn" href="#/profile" id="startProfile">${t('x_setup')}</a></div>`;
+    const age = E.age(pr), bmi = E.bmi(pr), meds = pr.medList || [];
     const conds = (pr.conditions || []).filter(c => c !== 'none');
-    return `<div class="card"><div class="row"><div class="avatar">${esc((pr.name || '?').trim()[0] || '?').toUpperCase()}</div><div><h2 style="margin:0">${esc(pr.name)}</h2><div class="small muted">${E.age(pr)} · ${pr.weight} kg · ${pr.height} cm · ${t('bmi')} ${b ?? '—'}</div></div></div>
-      <div class="chips" style="margin-top:12px">${conds.length ? conds.map(c => `<span class="pill info">${t('c_' + c)}</span>`).join('') : `<span class="pill info">${t('conds_none')}</span>`}</div>
-      <div class="small muted" style="margin-top:10px">${T.kcal} kcal · ${t('n_c')} ${T.c} g · ${t('n_na')} ${T.na} mg · ${t('n_sf')} ${T.sf} g · ${t('n_fb')} ${T.fb} g</div></div>
-      ${window.NolaFeatures.hubGrid()}
-      <h2>${t('hub_account')}</h2><div class="card tight">
-        <button class="list-btn" data-action="edit-profile" id="editProfile"><span>👤 ${t('me_edit')}</span><span>›</span></button>
-        <button class="list-btn" data-action="go" data-to="readings"><span>📈 ${t('me_readings')}</span><span>›</span></button>
-        <button class="list-btn" data-action="go" data-to="learn"><span>🛡️ ${t('me_learn')}</span><span>›</span></button>
-        <button class="list-btn" data-action="go" data-to="settings" id="openSettings"><span>⚙️ ${t('me_settings')}</span><span>›</span></button></div>
-      <div class="card tight"><div><span>🌐 ${t('set_language')}</span></div>${window.NolaV3.langPicker(false)}</div>
-      <p class="tiny muted">${t('disclaimer')}</p>`;
+    const ma = (pr.medAllergies || []).map(a => t('ma_' + a)).concat(pr.medAllergyOther ? [pr.medAllergyOther] : []);
+    const fa = (pr.allergies || []).map(a => t('a_' + a)).concat(pr.allergyOther ? [pr.allergyOther] : []);
+    const last = ty => readings().filter(r => r.type === ty).reverse().sort((a, b) => b.ts - a.ts)[0];
+    const val = r => !r ? '—' : r.type === 'bp' ? r.sys + '/' + r.dia : r.type === 'glucose' ? fmtG(r.mg) : r.kg + ' kg';
+    return back('#/home', '❤️ ' + t('x_c_health')) + `
+      <div class="card" id="secPersonal"><div class="row between"><h2>👤 ${t('x_personal')}</h2><a class="btn sm ghost" href="#/profile" id="editProfile">✎ ${t('x_edit')}</a></div>
+        <div class="kv"><span>${t('x_name')}</span><b>${esc(pr.name)}</b><span>${t('x_age')}</span><b>${age || '—'}</b><span>${t('x_sex')}</span><b>${pr.gender ? t('g_' + pr.gender) : '—'}</b><span>${t('x_height')}</span><b>${pr.height ? pr.height + ' cm' : '—'}</b><span>${t('x_weight')}</span><b>${pr.weight ? pr.weight + ' kg' : '—'}</b><span>BMI</span><b>${bmi ? bmi + ' · ' + t('bmi_' + E.bmiCat(bmi)) : '—'}</b></div>
+        <p class="tiny muted">${t('x_bmi_note')}</p></div>
+      <div class="card" id="secConditions"><h2>🩺 ${t('x_conditions')}</h2>${conds.length ? `<div class="tags">${conds.map(c => `<span class="tag">${COND_I[c] || ''} ${esc(condName(c))}${pr.condDetails && pr.condDetails[c] ? ' — ' + esc(pr.condDetails[c]) : ''}</span>`).join('')}</div>` : `<p class="muted">${t('x_no_conditions')}</p>`}
+        ${fa.length ? `<p class="small"><b>${t('f_allergies')}:</b> ${fa.map(esc).join(', ')}</p>` : ''}</div>
+      <div class="card" id="secMeds"><h2>💊 ${t('x_meds')}</h2>${meds.length ? meds.map(m => `<details class="medrow" data-med="${m.id}"><summary><b>${esc(medName(m))}</b> <span class="muted small">${[m.dose, m.freq ? t('mf_' + m.freq) : '', m.reason].filter(Boolean).map(esc).join(' · ')}</span></summary><ul class="small">${infoLines(m, pr).map(l => `<li>${esc(l)}</li>`).join('')}</ul></details>`).join('') + `<p class="tiny muted">${t('mn_ask')}</p>` : `<p class="muted">${pr.noMeds ? t('md_no') : t('x_no_meds')}</p>`}
+        <p class="small"><b>${t('f_med_allergies')}:</b> ${ma.length ? ma.map(esc).join(', ') : t('x_none')}</p><p class="tiny muted">🩺 ${t('md_never')}</p></div>
+      <div class="stats3" id="latest">${['bp', 'glucose', 'weight'].map(ty => { const r = last(ty); return `<div class="stat" data-latest="${ty}"><span>${{ bp: '❤️', glucose: '🩸', weight: '⚖️' }[ty]} ${t('x_t_' + ty)}</span><b>${esc(val(r))}</b><small>${r ? fdate(r.ts) : t('x_none_yet')}</small></div>`; }).join('')}</div>
+      ${readingForm()}
+      ${chartCard()}
+      ${historyCard()}
+      ${securityCard()}`;
+  };
+  function toLocalInput(ts) { const d = new Date(ts); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + hm(d); }
+  function readingForm() {
+    const f = S.rd, ed = S.rdEdit && readings().find(r => r.id === S.rdEdit);
+    const ty = ed ? ed.type : f.type;
+    const when = ed ? toLocalInput(ed.ts) : (f.when || toLocalInput(Date.now()));
+    return `<div class="card" id="rdForm"><h2>${ed ? '✎ ' + t('x_edit_reading') : '＋ ' + t('x_add_reading')}</h2>
+      <div class="seg" id="rdType">${['bp', 'glucose', 'weight'].map(x => `<button type="button" class="${ty === x ? 'on' : ''}" data-action="rd-type" data-v="${x}" ${ed ? 'disabled' : ''}>${t('x_t_' + x)}</button>`).join('')}</div>
+      ${ty === 'bp' ? `<div class="grid3"><div><label class="f" for="rdSys">${t('x_sys')}</label><input class="in" id="rdSys" type="number" inputmode="numeric" value="${ed ? ed.sys : ''}" placeholder="120"></div><div><label class="f" for="rdDia">${t('x_dia')}</label><input class="in" id="rdDia" type="number" inputmode="numeric" value="${ed ? ed.dia : ''}" placeholder="80"></div><div><label class="f" for="rdPulse">${t('x_pulse')}</label><input class="in" id="rdPulse" type="number" inputmode="numeric" value="${ed && ed.pulse ? ed.pulse : ''}" placeholder="${t('x_optional')}"></div></div>`
+        : ty === 'glucose' ? `<div class="grid2"><div><label class="f" for="rdG">${t('x_t_glucose')} (${unit() === 'mmol' ? 'mmol/L' : 'mg/dL'})</label><input class="in" id="rdG" type="number" step="0.1" inputmode="decimal" value="${ed ? (unit() === 'mmol' ? E.r(ed.mg / 18, 1) : ed.mg) : ''}" placeholder="${unit() === 'mmol' ? '5.5' : '100'}"></div>
+          <div><label class="f" for="rdCtx">${t('x_when_measured')}</label><select class="in" id="rdCtx">${['fasting', 'before', 'after', 'random'].map(c => `<option value="${c}" ${(ed ? ed.ctx : f.ctx) === c ? 'selected' : ''}>${t('ctx_' + c)}</option>`).join('')}</select></div></div>`
+        : `<label class="f" for="rdW">${t('x_weight')} (kg)</label><input class="in" id="rdW" type="number" step="0.1" inputmode="decimal" value="${ed ? ed.kg : ''}" placeholder="70">`}
+      <label class="f" for="rdWhen">${t('x_date_time')}</label><input class="in" id="rdWhen" type="datetime-local" value="${when}">
+      <label class="f" for="rdNote">${t('x_note')}</label><input class="in" id="rdNote" maxlength="120" value="${esc(ed ? ed.note || '' : '')}" placeholder="${t('x_optional')}">
+      <div class="row gap"><button class="btn grow" data-action="rd-save" id="rdSave">${t('x_save')}</button>${ed ? `<button class="btn ghost" data-action="rd-cancel" id="rdCancel">${t('x_cancel')}</button>` : ''}</div></div>`;
   }
-  function rSettings() {
-    const s = settings();
-    return `<h1>${t('me_settings')}</h1>
-      <div class="card"><b>${t('set_language')}</b>${window.NolaV3.langPicker(false)}
-        <div class="row between" style="margin-top:14px"><div><b>${t('set_simple')}</b><div class="tiny muted">${t('set_simple_d')}</div></div><label class="row"><input type="checkbox" id="simpleMode" data-action-change="simple" ${s.simple ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
-        <div class="row between" style="margin-top:14px"><div><b>${t('set_lowdata')}</b><div class="tiny muted">${t('set_lowdata_d')}</div></div><label class="row"><input type="checkbox" id="lowData" data-action-change="lowdata" ${s.lowData ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
-        <div class="row between" style="margin-top:14px"><b>${t('set_textsize')}</b><div class="seg" style="width:200px" id="tsSeg">${['s', 'm', 'l', 'xl'].map(x => `<button class="${(DB.ui().textSize || 'm') === x ? 'on' : ''}" data-action="set-textsize" data-v="${x}" aria-label="${t('set_textsize')} ${x}">${{ s: 'A-', m: 'A', l: 'A+', xl: 'A++' }[x]}</button>`).join('')}</div></div>
-        <div class="row between" style="margin-top:14px"><div><b>${t('voice_replies')}</b><div class="tiny muted">${window.NolaVoice.ttsSupported ? (window.NolaVoice.hasVoice(L()) ? t('voice_ok') : t('voice_no_tts')) : t('voice_no_tts')}</div></div><label class="row"><input type="checkbox" data-action-change="voice-replies" ${s.voiceReplies ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
-        <div class="row between" style="margin-top:14px"><b>${t('set_unit')}</b><div class="seg" style="width:180px"><button class="${s.unit === 'mg' ? 'on' : ''}" data-action="set-unit" data-v="mg">mg/dL</button><button class="${s.unit === 'mmol' ? 'on' : ''}" data-action="set-unit" data-v="mmol">mmol/L</button></div></div></div>
-      <div class="card"><h3>✨ ${t('set_ai')}</h3><p class="tiny muted">${t('set_ai_d')}</p>
-        <label class="f">${t('set_base')}</label><input class="in" id="aiBase" value="${esc(s.aiBase)}" placeholder="https://api.openai.com/v1">
-        <label class="f">${t('set_key')}</label><input class="in" id="aiKey" type="password" value="${esc(s.aiKey)}" placeholder="sk-…" autocomplete="off">
-        <label class="f">${t('set_model')}</label><input class="in" id="aiModel" value="${esc(s.aiModel)}" placeholder="gpt-4o-mini">
-        <div class="row" style="margin-top:12px"><button class="btn grow" data-action="save-ai" id="saveAi">${t('save')}</button><button class="btn ghost" data-action="test-ai">${t('set_test')}</button></div><div id="aiStatus" class="small" style="margin-top:8px"></div></div>
-      <div class="card tight"><button class="list-btn" data-action="export"><span>⬇️ ${t('set_export')} <span class="tiny muted">(${t('set_unencrypted')})</span></span><span>›</span></button>
-        <button class="list-btn" data-action="go" data-to="privacy"><span>🔒 ${t('hub_privacy')}</span><span>›</span></button>
-        <label class="list-btn" style="cursor:pointer"><span>⬆️ ${t('set_import')}</span><input type="file" id="importIn" accept="application/json" hidden><span>›</span></label>
-        <button class="list-btn" data-action="reset" style="color:var(--red)"><span>🗑 ${t('set_reset')}</span><span>›</span></button></div>
-      <div class="card"><h3>${t('about')}</h3><p class="small muted">NOLA HEALTH v${VERSION} · ${DB.usingIDB ? 'IndexedDB' : 'localStorage'} · ${'serviceWorker' in navigator && navigator.serviceWorker.controller ? t('offline_ready') : location.protocol === 'file:' ? 'file:// mode' : ''}</p><p class="tiny muted">${t('disclaimer')}</p></div>`;
+  function chartCard() {
+    const ty = S.rd.type, rs = readings().filter(r => r.type === ty && r.ts > Date.now() - 90 * DAY);
+    if (rs.length < 2) return '';
+    const series = ty === 'bp' ? [{ pts: rs.map(r => ({ x: r.ts, y: r.sys })), color: '#15803d' }, { pts: rs.map(r => ({ x: r.ts, y: r.dia })), color: '#65a30d' }]
+      : [{ pts: rs.map(r => ({ x: r.ts, y: ty === 'glucose' ? (unit() === 'mmol' ? r.mg / 18 : r.mg) : r.kg })), color: '#15803d' }];
+    return `<div class="card" id="rdChart"><h2>📈 ${t('x_t_' + ty)} · ${t('x_90d')}</h2>${CH.line(series, { h: 160 })}<p class="tiny muted">${t('x_chart_note')}</p></div>`;
   }
-  function rLearn() {
-    return `<h1>${t('learn_title')}</h1>
-      <div class="card" style="border-left:4px solid var(--red)"><h3>🩺 ${t('learn_doctor')}</h3><ul class="clean">${DOCTOR.map(d => `<li>${esc(tr(d))}</li>`).join('')}</ul><a class="btn block callbtn" href="tel:907" style="margin-top:8px">📞 ${t('rf_call')}</a><p class="tiny muted">${t('rf_numbers')}</p></div>
-      <h2>${t('learn_tips')}</h2>${TIPS.map(x => `<div class="card tight"><div>${esc(tr(x))}</div><div class="tiny muted" style="margin-top:4px">📚 ${x.src}</div></div>`).join('')}
-      <div class="card"><h3>${t('learn_estimates')}</h3><p class="small">${t('learn_estimates_body')}</p></div>
-      <div class="card"><h3>${t('learn_sources')}</h3><ul class="clean src-list">${SOURCES.map(s => `<li><a href="${s[1]}" target="_blank" rel="noopener">${s[0]}</a></li>`).join('')}</ul></div>`;
+  function historyCard() {
+    const f = S.hist;
+    const rs = readings().map(r => ({ kind: r.type, ts: r.ts, r })), ms = meals().map(m => ({ kind: 'meal', ts: m.ts, m }));
+    const all = rs.concat(ms).filter(x => f === 'all' || x.kind === f).sort((a, b) => b.ts - a.ts).slice(0, 60);
+    const row = x => {
+      if (x.kind === 'meal') { const m = x.m; const names = (m.items || []).map(i => { const fd = i.foodId && F.byId[i.foodId]; return fd ? (fd.name[L()] || fd.name.en) : (i.name || '?'); }).join(', ');
+        return `<li class="hrow" data-hid="${m.id}"><span class="hi">🍽️</span><div class="grow"><b>${esc(names)}</b><small>${fdate(m.ts)}${m.totals ? ' · ~' + Math.round(m.totals.kcal) + ' kcal' : ''}${m.verdict ? ' · ' + t('x_v_' + m.verdict) : ''}</small></div><button class="iconbtn" data-action="meal-del" data-id="${m.id}" aria-label="${t('x_delete')}">✕</button></li>`; }
+      const r = x.r, v = r.type === 'bp' ? `${r.sys}/${r.dia} mmHg${r.pulse ? ' · ♥ ' + r.pulse : ''}` : r.type === 'glucose' ? `${fmtG(r.mg)} · ${t('ctx_' + (r.ctx || 'random'))}` : `${r.kg} kg`;
+      return `<li class="hrow" data-hid="${r.id}"><span class="hi">${{ bp: '❤️', glucose: '🩸', weight: '⚖️' }[r.type]}</span><div class="grow"><b>${esc(v)}</b><small>${fdate(r.ts)}${r.note ? ' · ' + esc(r.note) : ''}</small></div><button class="iconbtn" data-action="rd-edit" data-id="${r.id}" aria-label="${t('x_edit')}">✎</button><button class="iconbtn" data-action="rd-del" data-id="${r.id}" aria-label="${t('x_delete')}">✕</button></li>`;
+    };
+    return `<div class="card" id="history"><h2>🗂️ ${t('x_history')}</h2><div class="chips">${['all', 'bp', 'glucose', 'weight', 'meal'].map(k => `<button type="button" class="chip sm ${f === k ? 'on' : ''}" data-action="hist" data-v="${k}">${t('x_h_' + k)}</button>`).join('')}</div>
+      ${all.length ? `<ul class="hlist">${all.map(row).join('')}</ul>` : `<p class="muted">${t('x_history_empty')}</p>`}</div>`;
   }
+  function securityCard() {
+    const enc = DB.encrypted;
+    return `<div class="card" id="secSecurity"><h2>🔒 ${t('x_security')}</h2><p class="small">${enc ? '✅ ' + t('x_pin_on') : t('x_pin_off')}</p>
+      ${enc ? `<div class="row gap wrap"><button class="btn sm" data-action="lock-now" id="lockNow">🔒 ${t('x_lock_now')}</button><button class="btn sm ghost" data-action="pin-off" id="pinOff">${t('x_pin_remove')}</button></div>`
+        : `<div class="grid2"><div><label class="f" for="pin1">${t('x_pin_new')}</label><input class="in" id="pin1" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></div><div><label class="f" for="pin2">${t('x_pin_again')}</label><input class="in" id="pin2" type="password" inputmode="numeric" maxlength="8" autocomplete="new-password"></div></div><button class="btn sm" data-action="pin-set" id="pinSet">${t('x_pin_set')}</button>`}
+      <p class="tiny muted">${t('x_privacy')}</p><button class="btn sm danger" data-action="wipe" id="wipe">🗑️ ${t('x_wipe')}</button></div>`;
+  }
+
+  /* My Health › edit profile (personal info, conditions, medicines, allergies, diet) */
+  function edInit() { const pr = profile(); S.ed = pr ? JSON.parse(JSON.stringify(pr)) : { name: '', conditions: [], condDetails: {}, allergies: [], medAllergies: [], restrictions: [], medList: [], gender: '', activity: 'light', goals: [], prefs: ['ethiopian'] }; S.ed.condDetails = S.ed.condDetails || {}; S.ed.medList = S.ed.medList || []; S.med = { name: '', dose: '', freq: '', medId: null, edit: null }; }
+  function medSug(q) { return MD.search(q || '', 6).map(m => `<button type="button" class="chip sm" data-action="med-pick" data-id="${m.id}">${esc(L() === 'am' ? m.am : m.en)}</button>`).join(''); }
+  ROUTES.profile = function () {
+    if (!S.ed) edInit();
+    const d = S.ed, isNew = !profile(), sel = d.conditions || [];
+    const inp = (k, lab, type = 'text', extra = '') => `<label class="f" for="p_${k}">${t(lab)}</label><input class="in" id="p_${k}" data-f="${k}" type="${type}" value="${esc(d[k] == null ? '' : d[k])}" ${extra}>`;
+    const med = S.med;
+    return back(isNew ? '#/home' : '#/health', isNew ? t('x_setup') : t('x_edit_profile')) + `
+      <div class="card"><h2>👤 ${t('x_personal')}</h2>${inp('name', 'x_name', 'text', 'maxlength="60" autocomplete="name"')}
+        <div class="grid2"><div>${inp('age', 'x_age', 'number', 'inputmode="numeric" min="1" max="120"')}</div><div>${inp('dob', 'x_dob', 'date')}</div></div>
+        <div class="grid2"><div>${inp('weight', 'x_weight_kg', 'number', 'inputmode="decimal" step="0.1"')}</div><div>${inp('height', 'x_height_cm', 'number', 'inputmode="decimal"')}</div></div>
+        <label class="f">${t('x_sex')} (${t('x_optional')})</label><div class="chips">${['female', 'male'].map(g => chip('gender', g, t('g_' + g), d.gender === g)).join('')}</div>
+        <label class="f">${t('x_glucose_unit')}</label><div class="chips">${chip('unit', 'mg', 'mg/dL', (d.unit || unit()) === 'mg')}${chip('unit', 'mmol', 'mmol/L', (d.unit || unit()) === 'mmol')}</div></div>
+      <div class="card"><h2>🩺 ${t('x_conditions')}</h2><p class="small muted">${t('ob_cond_never')}</p>
+        <div class="conds" id="condCards">${CONDS.map(c => `<button type="button" class="cond ${sel.includes(c) ? 'on' : ''}" data-action="chip" data-k="conditions" data-v="${c}" aria-pressed="${sel.includes(c)}"><span class="ci">${COND_I[c]}</span><span>${esc(condName(c))}</span></button>`).join('')}</div>
+        ${sel.includes('other') ? `<label class="f" for="p_condOther">${t('ob_cond_other_ph')}</label><input class="in" id="p_condOther" data-cdet="other" value="${esc(d.condDetails.other || '')}" maxlength="80">` : ''}
+        ${sel.includes('unsure') ? `<p class="note">${t('ob_unsure_note')}</p>` : ''}</div>
+      <div class="card" id="medEditor"><h2>💊 ${t('x_meds')}</h2><p class="small muted">${t('md_q')}</p>
+        <div class="chips">${chip('noMeds', '0', t('md_yes'), !d.noMeds && (d.medList.length > 0 || S.med.yes), 'id="medYes"')}${chip('noMeds', '1', t('md_no'), !!d.noMeds, 'id="noMeds"')}</div>
+        ${d.noMeds ? '' : `<ul class="mlist" id="medList">${d.medList.map(m => `<li data-med="${m.id}"><div class="grow"><b>${esc(medName(m))}</b><small>${[m.dose, m.freq ? t('mf_' + m.freq) : ''].filter(Boolean).map(esc).join(' · ')}</small></div><button type="button" class="iconbtn" data-action="med-edit" data-id="${m.id}" aria-label="${t('x_edit')}">✎</button><button type="button" class="iconbtn" data-action="med-del" data-id="${m.id}" aria-label="${t('x_delete')}">✕</button></li>`).join('')}</ul>
+        <div class="medform"><label class="f" for="medName">${med.edit ? '✎ ' : '＋ '}${t('md_name')}</label><input class="in" id="medName" value="${esc(med.name)}" maxlength="80" placeholder="${esc(t('md_search_ph'))}" autocomplete="off"><div class="chips sug" id="medSug">${medSug(med.name)}</div>
+          <div class="grid2"><div><label class="f" for="medDose">${t('md_dose')}</label><input class="in" id="medDose" value="${esc(med.dose)}" maxlength="40" placeholder="${esc(t('md_dose_ph'))}"></div><div><label class="f" for="medFreq">${t('md_freq')}</label><select class="in" id="medFreq"><option value="">—</option>${FREQ.map(x => `<option value="${x}" ${med.freq === x ? 'selected' : ''}>${t('mf_' + x)}</option>`).join('')}</select></div></div>
+          <button type="button" class="btn sm" data-action="med-add" id="medAdd">${med.edit ? t('x_save') : '＋ ' + t('md_save')}</button></div>`}
+        <p class="tiny muted">🩺 ${t('md_never')}</p></div>
+      <div class="card"><h2>⚠️ ${t('x_allergies')}</h2><label class="f">${t('f_allergies')}</label><div class="chips">${ALLERGY.map(a => chip('allergies', a, t('a_' + a), (d.allergies || []).includes(a))).join('')}</div>
+        ${inp('allergyOther', 'f_allergy_other', 'text', 'maxlength="80"')}
+        <label class="f">${t('f_med_allergies')}</label><div class="chips">${MED_ALLERGY.map(a => chip('medAllergies', a, t('ma_' + a), (d.medAllergies || []).includes(a))).join('')}</div>
+        ${inp('medAllergyOther', 'f_med_allergy_other', 'text', 'maxlength="80"')}</div>
+      <div class="card"><h2>🍽️ ${t('x_diet')}</h2><div class="chips">${RESTR.map(r => chip('restrictions', r, t('r_' + r), (d.restrictions || []).includes(r))).join('')}</div>${inp('fav', 'x_fav', 'text', 'maxlength="100"')}</div>
+      ${isNew ? `<label class="consent"><input type="checkbox" id="pConsent"> <span>${t('x_consent')}</span></label>` : ''}
+      <button class="btn block big" data-action="profile-save" id="profileSave">${t('x_save')}</button>`;
+  };
+
+  /* What Should I Eat? */
+  function fastingToday(pr) { const d = new Date().getDay(); return (pr.restrictions || []).includes('fasting') && (d === 3 || d === 5); }
+  function autoSlot() { const h = new Date().getHours(); return h < 10 ? 'breakfast' : h < 15 ? 'lunch' : h < 17 ? 'snack' : 'dinner'; }
+  function rankDishes(slot, pr) {
+    const fd = fastingToday(pr), recent = new Set(meals().filter(m => m.ts > Date.now() - 2 * DAY).flatMap(m => (m.items || []).map(i => i.foodId)));
+    return DI.DISHES.filter(d => d.slots.includes(DI.SLOT[slot]) && DI.allowed(d, pr, fd)).map(d => {
+      const items = DI.dishItems(d, pr), a = E.analyze(items, pr, slot), T = a.targets, x = a.totals;
+      const sev = { good: 0, adjust: 1, alt: 2 }[a.verdict];
+      const rank = sev * 100 + (x.na / T.na) * 30 + (x.sf / T.sf) * 15 + (E.isDiabetic(pr) ? (x.c / (T.c * 0.33)) * 25 : 0) - Math.min(x.fb, 12) * 2 + (d.items.some(i => recent.has(i[0])) ? 12 : 0);
+      return { d, items, a, rank };
+    }).sort((p, q) => p.rank - q.rank).slice(0, 4);
+  }
+  ROUTES.eat = function () {
+    const pr = profile();
+    if (!pr) return back('#/home', '🥗 ' + t('x_c_eat')) + `<div class="card center"><p>${t('x_eat_need')}</p><a class="btn" href="#/profile">${t('x_setup')}</a></div>`;
+    const slot = S.slot || autoSlot(), list = rankDishes(slot, pr), conds = (pr.conditions || []).filter(c => !['none', 'unsure'].includes(c));
+    const vcol = { good: 'green', adjust: 'yellow', alt: 'red' };
+    return back('#/home', '🥗 ' + t('x_c_eat')) + `
+      <p class="muted" id="eatBasis">${conds.length ? t('x_eat_based', { c: conds.map(condName).join(', ') }) : t('x_eat_general')}</p>
+      <div class="seg" id="slotSeg">${['breakfast', 'lunch', 'dinner', 'snack'].map(s => `<button type="button" class="${slot === s ? 'on' : ''}" data-action="slot" data-v="${s}">${t('meal_' + s)}</button>`).join('')}</div>
+      ${fastingToday(pr) ? `<p class="note">🌿 ${t('x_fasting_today')}</p>` : ''}
+      <div id="dishList">${list.length ? list.map(({ d, a }, i) => {
+        const good = a.why.filter(w => w.good).slice(0, 2), care = a.why.filter(w => !w.good && w.lvl > 0).slice(0, 2), info = a.why.filter(w => w.lvl === -1 && !w.good && (w.med || /KDIGO|AASLD|anemia|ደም ማነስ/i.test(w.text))).slice(0, 2);
+        return `<div class="card dish" data-dish="${d.id}"><div class="row between top"><h3>${i === 0 ? '⭐ ' : ''}${esc(d.name[L()] || d.name.en)}</h3><span class="pill ${vcol[a.verdict]}">${t('x_v_' + a.verdict)}</span></div>
+          <p class="tiny muted">${t('x_est')}: ~${Math.round(a.totals.kcal)} kcal · ${t('n_c')} ${Math.round(a.totals.c)} g · ${t('n_fb')} ${Math.round(a.totals.fb)} g · ${t('n_na')} ${Math.round(a.totals.na)} mg</p>
+          <ul class="why">${good.map(w => `<li class="good">✓ ${esc(w.text)}</li>`).join('')}${care.map(w => `<li class="care">• ${esc(w.text)}</li>`).join('')}${info.map(w => `<li class="info">ℹ️ ${esc(w.text)}</li>`).join('')}</ul>
+          ${a.tips.length ? `<p class="small"><b>${t('x_tip')}:</b> ${esc(a.tips[0])}</p>` : ''}</div>`; }).join('') : `<div class="card"><p>${t('x_eat_none')}</p></div>`}</div>
+      <div class="card plate"><h2>🍽️ ${t('x_plate')}</h2><p>${t('x_plate_d')}</p><p class="tiny muted">${t('x_plate_src')}</p></div>
+      <p class="disc">${t('x_eat_disc')}</p>`;
+  };
+
+  /* Reminders */
+  const remOnDay = (r, d = new Date()) => r.on !== false && (r.date ? r.date === dayKey(d) : (!r.days || !r.days.length || r.days.includes(d.getDay())));
+  const remTitle = r => (r.title || (r.oldKind && r.oldKind !== r.kind ? t('x_old_' + r.oldKind) : t('x_rk_' + r.kind))) + (r.forWho ? ' (' + r.forWho + ')' : '');
+  const RI = { medicine: '💊', checkup: '🩺', goal: '🎯' };
+  function nextReminder() { const now = hm(new Date()); const r = rems().filter(x => remOnDay(x) && x.doneDay !== today() && (x.time || '') >= now).sort((a, b) => a.time.localeCompare(b.time))[0]; return r ? { time: r.time, title: remTitle(r) } : null; }
+  function notifState() { return !('Notification' in window) ? 'unsupported' : Notification.permission; }
+  function suggestedGoals(pr) {
+    const out = [['water', '💧'], ['veg', '🥬']];
+    if (pr) { if (E.has(pr, 'htn') || E.has(pr, 'heart')) out.push(['bp', '❤️']); if (E.isDiabetic(pr)) out.push(['sugar', '🩸']); if ((pr.medList || []).length) out.push(['meds', '💊']); out.push([E.has(pr, 'heart') || E.age(pr) >= 65 ? 'walk_gentle' : 'walk', '🚶']); }
+    else out.push(['walk', '🚶']);
+    const have = new Set(rems().filter(r => r.kind === 'goal').map(r => r.sug));
+    return out.filter(([k]) => !have.has(k));
+  }
+  function remRow(r) {
+    const done = r.doneDay === today();
+    return `<div class="rrow ${done ? 'done' : ''}" data-rem="${r.id}"><span class="ri">${RI[r.kind] || '⏰'}</span><div class="grow"><b>${esc(remTitle(r))}</b><small>${esc(r.time || '')}</small></div>${done ? `<span class="pill green">✓ ${t('x_done')}</span>` : `<button class="btn sm soft" data-action="rem-done" data-id="${r.id}">${t('x_mark_done')}</button>`}</div>`;
+  }
+  ROUTES.reminders = function () {
+    const pr = profile(), ns = notifState(), all = rems(), f = S.rem, td = all.filter(r => remOnDay(r) && r.kind !== 'goal').sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    const goals = all.filter(r => r.kind === 'goal' && remOnDay(r)), sugg = suggestedGoals(pr);
+    const meds = pr ? pr.medList || [] : [];
+    return back('#/home', '⏰ ' + t('x_c_rem')) + `
+      <div class="card" id="notifCard"><div class="row between"><div><b>🔔 ${t('x_notif')}</b><div class="small muted" id="notifState">${t('x_n_' + ns)}</div></div>
+        ${ns === 'default' ? `<button class="btn sm" data-action="notif-allow" id="notifAllow">${t('x_allow')}</button>` : ns === 'granted' ? `<button class="btn sm ghost" data-action="notif-test" id="notifTest">${t('x_test')}</button>` : ''}</div><p class="tiny muted">${t('x_notif_honest')}</p></div>
+      <h2>📅 ${t('x_today')}</h2><div class="card tight" id="remToday">${td.length ? td.map(remRow).join('') : `<p class="muted">${t('x_rem_none_today')}</p>`}</div>
+      <h2>🎯 ${t('x_goals')}</h2><div class="card tight" id="goals">${goals.length ? goals.map(r => `<label class="goal ${r.doneDay === today() ? 'done' : ''}" data-rem="${r.id}"><input type="checkbox" data-change="goal-check" data-id="${r.id}" ${r.doneDay === today() ? 'checked' : ''}><span>${esc(remTitle(r))}${r.time ? ` <small class="muted">${esc(r.time)}</small>` : ''}</span></label>`).join('') + `<p class="small muted" id="goalCount">${t('x_goals_done', { n: goals.filter(r => r.doneDay === today()).length, t: goals.length })}</p>` : `<p class="muted">${t('x_goals_none')}</p>`}
+        ${sugg.length ? `<p class="small"><b>${t('x_goal_sug')}</b></p><div class="chips" id="goalSug">${sugg.map(([k, i]) => `<button type="button" class="chip" data-action="goal-add" data-v="${k}">${i} ${t('x_g_' + k)}</button>`).join('')}</div>` : ''}</div>
+      <div class="card" id="remForm"><h2>＋ ${t('x_rem_add')}</h2>
+        <div class="seg" id="remKind">${['medicine', 'checkup', 'goal'].map(k => `<button type="button" class="${f.kind === k ? 'on' : ''}" data-action="rem-kind" data-v="${k}">${RI[k]} ${t('x_rk_' + k)}</button>`).join('')}</div>
+        ${f.kind === 'medicine' && meds.length ? `<div class="chips" id="remMeds" style="margin-top:10px">${meds.map(m => `<button type="button" class="chip sm" data-action="rem-med" data-v="${esc(medName(m) + (m.dose ? ' ' + m.dose : ''))}">💊 ${esc(medName(m))}</button>`).join('')}</div>` : ''}
+        <label class="f" for="remTitle">${t('x_rem_what')}</label><input class="in" id="remTitle" maxlength="80" value="${esc(f.title || '')}" placeholder="${esc(t('x_rk_ph_' + f.kind))}">
+        <div class="grid2"><div><label class="f" for="remTime">${t('x_time')}</label><input class="in" id="remTime" type="time" value="${esc(f.time || '08:00')}"></div>
+          <div><label class="f" for="remRepeat">${t('x_repeat')}</label><select class="in" id="remRepeat">${['daily', 'days', 'once'].map(x => `<option value="${x}" ${f.repeat === x ? 'selected' : ''}>${t('x_r_' + x)}</option>`).join('')}</select></div></div>
+        ${f.repeat === 'days' ? `<div class="chips" id="remDays" style="margin-top:8px">${[1, 2, 3, 4, 5, 6, 0].map(d => `<button type="button" class="chip sm ${f.days.includes(d) ? 'on' : ''}" data-action="rem-day" data-v="${d}">${t('x_dow_' + d)}</button>`).join('')}</div>` : ''}
+        ${f.repeat === 'once' ? `<label class="f" for="remDate">${t('x_date')}</label><input class="in" id="remDate" type="date" value="${esc(f.date || today())}">` : ''}
+        ${f.kind === 'medicine' ? `<p class="tiny muted">💊 ${t('x_rem_med_note')}</p>` : ''}
+        <button class="btn block" data-action="rem-save" id="remSave">${t('x_save')}</button></div>
+      <h2>🗂️ ${t('x_rem_all')}</h2><div class="card tight" id="remAll">${all.length ? all.map(r => `<div class="rrow" data-rem="${r.id}"><span class="ri">${RI[r.kind] || '⏰'}</span><div class="grow"><b>${esc(remTitle(r))}</b><small>${esc(r.time || '')} · ${r.date ? esc(r.date) : r.days && r.days.length ? r.days.map(d => t('x_dow_' + d)).join(' ') : t('x_r_daily')}</small></div>
+        <label class="switch"><input type="checkbox" data-change="rem-on" data-id="${r.id}" ${r.on !== false ? 'checked' : ''} aria-label="${t('x_on')}"><span></span></label><button class="iconbtn" data-action="rem-del" data-id="${r.id}" aria-label="${t('x_delete')}">✕</button></div>`).join('') : `<p class="muted">${t('x_rem_empty')}</p>`}</div>`;
+  };
+  async function notify(title, body) {
+    if (notifState() !== 'granted') return false;
+    try { const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration(); if (reg && reg.showNotification) { await reg.showNotification(title, { body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'nola-' + Date.now() }); return true; } } catch (e) {}
+    try { new Notification(title, { body, icon: 'icons/icon-192.png' }); return true; } catch (e) { return false; }
+  }
+  function checkReminders() {
+    if (DB.locked) return;
+    const now = new Date(), nowHm = hm(now), list = rems(); let changed = false;
+    list.forEach(r => {
+      if (!remOnDay(r, now) || !r.time || r.firedDay === today() || r.doneDay === today() || r.time > nowHm) return;
+      const [h, m] = r.time.split(':').map(Number), due = new Date(now); due.setHours(h, m, 0, 0);
+      if (now - due > 2 * 3600e3) return;
+      r.firedDay = today(); changed = true;
+      notify('NOLA HEALTH · ' + remTitle(r), t('x_rem_due', { time: r.time }));
+      const box = $('#remAlert'); box.innerHTML = `<div class="remalert" role="alert"><span class="ri">${RI[r.kind] || '⏰'}</span><div class="grow"><b>${esc(remTitle(r))}</b><small>${t('x_rem_due', { time: r.time })}</small></div><button class="btn sm" data-action="rem-done" data-id="${r.id}" id="remAlertDone">${t('x_mark_done')}</button><button class="iconbtn" data-action="remalert-close" aria-label="${t('x_close')}">✕</button></div>`; box.hidden = false;
+    });
+    if (changed) DB.set('reminders', list);
+  }
+
+  /* Scan Food */
+  const POPULAR = ['injera_teff', 'shiro', 'misir', 'gomen', 'tibs', 'doro_wot', 'ful', 'kitfo', 'firfir', 'rice', 'pasta', 'selata'];
+  const foodChips = list => list.map(f => `<button type="button" class="chip" data-action="food-add" data-id="${f.id}">＋ ${esc(f.name[L()] || f.name.en)}</button>`).join('') || `<span class="muted small">${t('x_no_match')}</span>`;
+  ROUTES.scan = function () {
+    const sc = S.scan, ai = AI.enabled();
+    if (sc.result) return scanResult();
+    const meal = sc.meal || autoSlot(), q = S.q || '';
+    const res = q ? F.search(q).slice(0, 8) : POPULAR.map(id => F.byId[id]).filter(Boolean);
+    return back('#/home', '📷 ' + t('x_c_scan')) + `
+      <div class="card" id="photoCard">${sc.photo ? `<img class="preview" id="scanPreview" src="${sc.photo}" alt="${t('x_photo')}">` : `<div class="ph-empty"><span>📷</span><p>${t('x_scan_intro')}</p></div>`}
+        <div class="row gap wrap"><label class="btn grow"><input type="file" accept="image/*" capture="environment" id="camIn" hidden>📸 ${t('x_take')}</label><label class="btn ghost grow"><input type="file" accept="image/*" id="upIn" hidden>🖼️ ${t('x_upload')}</label></div>
+        ${sc.photo ? (ai ? `<button class="btn block soft" data-action="scan-ai" id="scanAi">✨ ${t('x_scan_ai')}</button>` : `<p class="note" id="noAiNote">${t('x_scan_noai')}</p>`) : ''}</div>
+      <div class="card" id="pickCard"><h2>🍲 ${t('x_foods_in_meal')}</h2>
+        ${sc.items.length ? `<ul class="items" id="items">${sc.items.map((it, i) => { const fd = it.foodId && F.byId[it.foodId]; return `<li data-item="${i}"><div class="grow"><b>${esc(fd ? fd.name[L()] || fd.name.en : it.name)}</b>${it.conf != null ? ` <span class="pill grey">${t('x_ai_est')} ${Math.round(it.conf * 100)}%</span>` : ''}<small>${fd ? esc(fd.base[L()] || fd.base.en) : t('x_ai_custom')}</small>
+          <div class="seg sm">${[0.5, 1, 1.5, 2].map(m => `<button type="button" class="${+it.mult === m ? 'on' : ''}" data-action="item-mult" data-i="${i}" data-v="${m}">${m === 0.5 ? '½' : m === 1.5 ? '1½' : m}×</button>`).join('')}</div></div><button class="iconbtn" data-action="item-del" data-i="${i}" aria-label="${t('x_delete')}">✕</button></li>`; }).join('')}</ul>` : `<p class="muted">${t('x_no_items')}</p>`}
+        <label class="f" for="foodSearch">🔎 ${t('x_food_search')}</label><input class="in" id="foodSearch" value="${esc(q)}" placeholder="${t('x_food_search_ph')}" autocomplete="off">
+        <div class="chips" id="foodRes">${foodChips(res)}</div>
+        <label class="f">${t('x_meal')}</label><div class="seg" id="mealSeg">${['breakfast', 'lunch', 'dinner', 'snack'].map(s => `<button type="button" class="${meal === s ? 'on' : ''}" data-action="scan-meal" data-v="${s}">${t('meal_' + s)}</button>`).join('')}</div>
+        <button class="btn block big" data-action="scan-go" id="scanGo" ${sc.items.length ? '' : 'disabled'}>${t('x_get_advice')}</button>
+        ${profile() ? '' : `<p class="tiny muted">${t('x_scan_noprofile')}</p>`}</div>`;
+  };
+  function scanResult() {
+    const { a } = S.scan.result, x = a.totals, col = { good: 'green', adjust: 'yellow', alt: 'red' }[a.verdict];
+    const rows = [['kcal', 'kcal'], ['c', 'g'], ['p', 'g'], ['f', 'g'], ['sf', 'g'], ['fb', 'g'], ['as', 'g'], ['na', 'mg']];
+    return back('#/home', '📷 ' + t('x_c_scan')) + `
+      <div class="verdict ${col}" id="verdict"><b>${{ green: '🟢', yellow: '🟡', red: '🔴' }[col]} ${t('verdict_' + a.verdict)}</b><p>${t('verdict_' + a.verdict + '_d')}</p></div>
+      ${a.allergy.length ? `<div class="note red">⚠️ ${esc(t('a_allergy', { items: a.allergy.join(', ') }))}</div>` : ''}
+      <div class="card" id="nutri"><h2>📊 ${t('x_nutrition')} <small class="muted">(${t('x_estimate')})</small></h2><table class="nt">${rows.map(([k, u]) => `<tr><td>${t('n_' + k)}</td><td><b>${k === 'sf' ? E.r(x[k], 1) : Math.round(x[k])} ${u}</b></td></tr>`).join('')}</table><p class="tiny muted">${t('x_nutri_src')}</p></div>
+      <div class="card" id="advice"><h2>💬 ${t('x_advice')}</h2><ul class="why">${a.why.map(w => `<li class="${w.good ? 'good' : w.lvl > 0 ? 'care' : 'info'}">${w.good ? '✓' : w.lvl > 0 ? '•' : 'ℹ️'} ${esc(w.text)}</li>`).join('')}</ul>
+        ${a.tips.length ? `<h3>${t('x_tips')}</h3><ul>${a.tips.map(x2 => `<li>${esc(x2)}</li>`).join('')}</ul>` : ''}${a.alts.length ? `<h3>${t('x_alts')}</h3><ul>${a.alts.map(x2 => `<li>${esc(x2)}</li>`).join('')}</ul>` : ''}</div>
+      <p class="disc">${t('x_not_dx')}</p>
+      <div class="row gap"><button class="btn grow" data-action="scan-save" id="scanSave" ${S.scan.saved ? 'disabled' : ''}>${S.scan.saved ? '✓ ' + t('x_saved') : '💾 ' + t('x_save_history')}</button><button class="btn ghost grow" data-action="scan-new" id="scanNew">📷 ${t('x_new_scan')}</button></div>`;
+  }
+
+  /* Nolaa AI Doctor */
+  const chatList = () => DB.get('doctorChat', []) || [];
+  ROUTES.doctor = function () {
+    const ai = AI.enabled(), c = AI.cfg(), list = chatList();
+    return `<div class="pagehead"><h1>🩺 ${t('x_nav_doctor')}</h1><button class="iconbtn" data-action="ai-gear" id="aiGear" aria-label="${t('x_ai_settings')}" aria-expanded="${S.showAi}">⚙️</button>${list.length ? `<button class="iconbtn" data-action="chat-clear" id="chatClear" aria-label="${t('x_clear')}">🗑️</button>` : ''}</div>
+      <p class="small ${ai ? 'ok-t' : 'muted'}" id="aiStatus">${ai ? '✨ ' + t('x_ai_on') : 'ℹ️ ' + t('x_ai_off')}</p>
+      ${S.showAi ? `<div class="card" id="aiPanel"><h2>⚙️ ${t('x_ai_settings')}</h2><p class="small">${t('x_ai_need')}</p>
+        <label class="f" for="aiBase">${t('x_ai_base')}</label><input class="in" id="aiBase" value="${esc(c.base)}" placeholder="https://api.openai.com/v1" autocomplete="off">
+        <label class="f" for="aiKey">${t('x_ai_key')}</label><input class="in" id="aiKey" type="password" value="${esc(c.key)}" placeholder="sk-…" autocomplete="off">
+        <label class="f" for="aiModel">${t('x_ai_model')}</label><input class="in" id="aiModel" value="${esc(c.model)}" placeholder="gpt-4o-mini" autocomplete="off">
+        <div class="row gap wrap"><button class="btn sm" data-action="ai-save" id="saveAi">${t('x_save')}</button><button class="btn sm ghost" data-action="ai-test" id="testAi">${t('x_test')}</button><button class="btn sm ghost" data-action="ai-remove" id="removeAi">${t('x_ai_remove')}</button></div>
+        <p class="tiny muted" id="aiTestOut">${t('x_ai_privacy')}</p></div>` : ''}
+      <p class="disc">${t('x_doc_disc')} <a href="tel:907">907</a></p>
+      <div id="chat" class="chat" aria-live="polite">${list.length ? list.map(m => `<div class="msg ${m.role}">${m.img ? `<img src="${m.img}" alt="">` : ''}${m.role === 'bot' ? md(m.text) : `<p>${esc(m.text)}</p>`}${m.src && m.src.length ? `<small class="src">${t('x_sources')}: ${m.src.map(esc).join(' · ')}</small>` : ''}</div>`).join('') : `<div class="msg bot intro">${md(t('x_doc_hello'))}</div>`}${S.busy ? `<div class="msg bot typing">…</div>` : ''}</div>
+      ${list.length ? '' : `<div class="chips" id="chatSug">${['x_q1', 'x_q2', 'x_q3', 'x_q4'].map(k => `<button type="button" class="chip" data-action="ask" data-q="${esc(t(k))}">${t(k)}</button>`).join('')}</div>`}
+      <form class="chatbar" id="chatForm" autocomplete="off"><label class="iconbtn lab" title="${t('x_lab_photo')}"><input type="file" accept="image/*" id="labFile" hidden aria-label="${t('x_lab_photo')}">📄</label><textarea class="in" id="chatIn" rows="1" placeholder="${t('x_chat_ph')}" maxlength="2000" aria-label="${t('x_chat_ph')}"></textarea><button class="btn" id="chatSend" type="submit" aria-label="${t('x_send')}">➤</button></form>`;
+  };
+  const SCOPE = /health|sick|\bill\b|pain|ache|hurt|fever|cough|cold|flu|dizz|tired|fatigue|weak|sleep|stress|anxi|depress|mood|headache|migraine|nause|vomit|diarr|constipat|stomach|bloat|heartburn|ulcer|rash|skin|itch|swell|breath|asthma|chest|heart|blood|pressure|\bbp\b|sugar|glucose|diabet|insulin|cholesterol|\bldl\b|\bhdl\b|triglycer|kidney|liver|anemi|iron|vitamin|pregnan|period|menstru|weight|\bbmi\b|obes|diet|\beat|food|meal|drink|water|fruit|vegetable|injera|shiro|teff|misir|coffee|buna|\btea\b|alcohol|beer|\btej\b|salt|\bfat\b|\boil\b|protein|carb|fiber|calori|nutri|fasting|tsom|breakfast|lunch|dinner|snack|medic|medicine|\bdrug|pill|tablet|\bdose|pharmac|doctor|clinic|hospital|nurse|\btest|\blab\b|result|report|hba1c|\ba1c\b|creatinine|egfr|hemoglobin|haemoglobin|symptom|infection|allerg|exercise|\bwalk|activity|smok|ጤና|ህመም|ያመኛል|ራስ|ትኩሳት|ሳል|ድካም|እንቅልፍ|ግፊት|ስኳር|ደም|ልብ|ኩላሊት|ጉበት|ክብደት|ምግብ|መብላት|ልብላ|እንጀራ|ሽሮ|ውሃ|ቡና|ሻይ|አልኮል|ጨው|ዘይት|ቅቤ|ጾም|መድሃኒት|መድኃኒት|ኪኒን|ሐኪም|ሆስፒታል|ምርመራ|ውጤት|ላብራቶሪ|እርግዝና|ቁርስ|ምሳ|እራት|አለርጂ|እንቅስቃሴ/i;
+  const OFFTOPIC = /football|soccer|\bmatch\b|movie|film|song|lyrics|music|politic|election|president|bitcoin|crypto|stock market|weather|\bjoke|programming|\bcode\b|javascript|python|homework|capital of|who won|celebrity|ኳስ|ፊልም|ዘፈን|ፖለቲካ|ምርጫ/i;
+  function inScope(q) { return SCOPE.test(q) || CO.detect(q) !== 'default' || !!MD.find(q); }
+  const LAB = [
+    ['hba1c', /(hba1c|\ba1c\b|glycated)[^\d]{0,15}(\d{1,2}(?:\.\d)?)/i], ['fbs', /(fasting (blood )?(sugar|glucose)|\bfbs\b|\bfbg\b)[^\d]{0,15}(\d{2,3}(?:\.\d)?)/i],
+    ['ldl', /\bldl\b[^\d]{0,15}(\d{2,3})/i], ['hdl', /\bhdl\b[^\d]{0,15}(\d{2,3})/i], ['tc', /total cholesterol[^\d]{0,15}(\d{2,3})/i], ['tg', /(triglycerides?|\btg\b)[^\d]{0,15}(\d{2,4})/i],
+    ['egfr', /\begfr\b[^\d]{0,15}(\d{1,3})/i], ['hb', /(hemoglobin|haemoglobin|\bhgb\b|\bhb\b)(?!a1c)[^\d]{0,15}(\d{1,2}(?:\.\d)?)/i],
+  ];
+  function labLines(q, pr) {
+    const out = [], fem = pr && pr.gender === 'female';
+    LAB.forEach(([k, re]) => { const m = q.match(re); if (!m) return; const v = parseFloat(m[m.length - 1]);
+      const band = k === 'hba1c' ? (v < 5.7 ? 'hba1c_n' : v < 6.5 ? 'hba1c_p' : 'hba1c_d') : k === 'fbs' ? (v < 100 ? 'fbs_n' : v < 126 ? 'fbs_p' : 'fbs_d')
+        : k === 'ldl' ? (v < 100 ? 'ldl_n' : v < 160 ? 'ldl_b' : 'ldl_h') : k === 'hdl' ? (v < (fem ? 50 : 40) ? 'hdl_l' : 'hdl_n') : k === 'tc' ? (v < 200 ? 'tc_n' : v < 240 ? 'tc_b' : 'tc_h')
+        : k === 'tg' ? (v < 150 ? 'tg_n' : v < 200 ? 'tg_b' : 'tg_h') : k === 'egfr' ? (v >= 90 ? 'egfr_n' : v >= 60 ? 'egfr_m' : 'egfr_l') : (v < (fem ? 12 : 13) ? 'hb_l' : 'hb_n');
+      out.push('• ' + t('x_lab_' + band, { v })); });
+    if (out.length) { out.unshift('**' + t('x_lab_title') + '**'); out.push(t('x_lab_end')); }
+    return out;
+  }
+  function myReadingLines(q) {
+    const out = [], last = ty => readings().filter(r => r.type === ty).reverse().sort((a, b) => b.ts - a.ts)[0];
+    if (/blood pressure|\bbp\b|ግፊት/i.test(q)) { const r = last('bp'); if (r) { const b = r.sys >= 180 || r.dia >= 120 ? 'crisis' : r.sys >= 140 || r.dia >= 90 ? 's2' : r.sys >= 130 || r.dia >= 80 ? 's1' : r.sys >= 120 ? 'el' : 'n'; out.push('**' + t('x_my_bp', { v: r.sys + '/' + r.dia, d: fdate(r.ts) }) + '** ' + t('x_bp_' + b)); } }
+    if (/sugar|glucose|ስኳር/i.test(q)) { const r = last('glucose'); if (r) { const f = r.ctx === 'fasting', b = f ? (r.mg < 70 ? 'low' : r.mg < 100 ? 'n' : r.mg < 126 ? 'p' : 'h') : (r.mg < 70 ? 'low' : r.mg < 140 ? 'n' : r.mg < 200 ? 'p' : 'h'); out.push('**' + t('x_my_g', { v: fmtG(r.mg), c: t('ctx_' + (r.ctx || 'random')), d: fdate(r.ts) }) + '** ' + t('x_g' + (f ? 'f' : 'r') + '_' + b)); } }
+    if (out.length) out.push(t('x_my_end'));
+    return out;
+  }
+  function doctorSystem(pr) {
+    const T = E.targets(pr), base = AI.coachSystem(pr, T, L());
+    const rs = readings().slice().sort((a, b) => b.ts - a.ts).slice(0, 6).map(r => (r.type === 'bp' ? `BP ${r.sys}/${r.dia}` : r.type === 'glucose' ? `glucose ${r.mg} mg/dL (${r.ctx || 'random'})` : `weight ${r.kg} kg`) + ' on ' + dayKey(r.ts)).join('; ') || 'none';
+    return base + `
+ROLE: You are "Nolaa AI Doctor" inside NOLA HEALTH — a health information assistant, NOT a real doctor. SCOPE: answer ONLY questions about health, symptoms, food, nutrition, medicines and laboratory reports. For anything else, politely decline in one short sentence and say what you can help with.
+Never diagnose a disease, never prescribe or recommend starting/stopping/changing a medicine or dose, never guarantee recovery, never invent lab values, never tell the user to ignore their doctor. For symptoms: explain possible general causes in plain words, give safe self-care, and say clearly when to see a doctor and when to seek urgent care (call 907).
+For lab reports: explain each value in simple words versus the reference range printed on the report (or standard ranges: ADA, AHA/NCEP, KDIGO, WHO), without diagnosing; suggest discussing results with their doctor.
+RECENT READINGS: ${rs}.`;
+  }
+  const DEFAULT_PR = { name: '', conditions: [], age: 40, weight: 70, height: 170, medList: [], goals: [], restrictions: [], allergies: [] };
+  async function ask(q, img) {
+    q = String(q || '').trim(); if ((!q && !img) || S.busy) return;
+    const pr = profile() || DEFAULT_PR, list = chatList();
+    list.push({ role: 'user', text: q || t('x_lab_photo'), img: img || null, ts: Date.now() });
+    DB.set('doctorChat', list.slice(-60)); S.busy = true; if (location.hash.startsWith('#/doctor')) { rerender(); scrollChat(); }
+    let reply = '', src = [];
+    const flag = q ? E.checkText(q, unit()) : null;
+    try {
+      if (flag) { reply = ['🚨 **' + t('rf_title') + '**'].concat(flag.keys.map(k => t(k, { v: flag.v }))).concat([t('rf_numbers')]).join('\n'); showAlert(flag); }
+      else if (img) {
+        if (!AI.enabled()) reply = t('x_lab_need_ai');
+        else reply = await AI.chat([{ role: 'system', content: doctorSystem(pr) }, { role: 'user', content: [{ type: 'text', text: 'Please explain this laboratory report in simple words for me. Read only what is clearly visible; if a value is unreadable, say so. Do not diagnose. ' + q + ' Reply in ' + (L() === 'am' ? 'Amharic' : 'English') + '.' }, { type: 'image_url', image_url: { url: img } }] }], { max_tokens: 900, timeout: 60000 });
+      } else if (!inScope(q) && (!AI.enabled() || OFFTOPIC.test(q))) reply = t('x_offtopic');
+      else if (AI.enabled()) {
+        const hist = list.slice(-9, -1).filter(m => !m.img).map(m => ({ role: m.role === 'bot' ? 'assistant' : 'user', content: m.text }));
+        reply = await AI.chat([{ role: 'system', content: doctorSystem(pr) }].concat(hist, [{ role: 'user', content: q }]));
+      } else {
+        const lab = labLines(q, pr), mine = myReadingLines(q);
+        if (mine.length && !lab.length) { const a = CO.answer(q, pr, L()); reply = mine.join('\n') + '\n' + a.text + '\n' + t('x_offline_note'); src = ['AHA/ACC 2017', 'ADA 2025'].concat(a.sources || []); }
+        else if (lab.length) { reply = lab.join('\n'); src = ['ADA 2025', 'AHA/ACC 2018', 'KDIGO 2024', 'WHO']; }
+        else { const a = CO.answer(q, pr, L()); reply = a.text + '\n' + t('x_offline_note'); src = a.sources || []; }
+      }
+    } catch (e) {
+      const lab = q ? labLines(q, pr) : [], a = lab.length ? { text: lab.join('\n'), sources: [] } : q ? CO.answer(q, pr, L()) : { text: t('x_lab_need_ai'), sources: [] };
+      reply = '⚠️ ' + t('x_ai_failed', { e: String(e.message || e).slice(0, 80) }) + '\n' + a.text; src = a.sources || [];
+    }
+    const l2 = chatList(); l2.push({ role: 'bot', text: reply, src, ts: Date.now() }); DB.set('doctorChat', l2.slice(-60));
+    S.busy = false; if (location.hash.startsWith('#/doctor')) { rerender(); scrollChat(); }
+  }
+  function scrollChat() { setTimeout(() => { const c = $('#chat'); if (c && c.lastElementChild) c.lastElementChild.scrollIntoView({ block: 'end' }); }, 30); }
+
+  /* About */
+  ROUTES.about = function () {
+    return `<div class="pagehead"><h1>ℹ️ ${t('x_nav_about')}</h1></div>
+      <div class="card about-hero"><img src="icons/icon.svg" alt="" width="64" height="64"><div><h2>NOLA HEALTH</h2><p>${t('x_tagline')}</p></div></div>
+      <div class="card" id="aboutText"><h2>${t('x_about_what_t')}</h2><p>${t('x_about_what')}</p><h2>${t('x_about_mission_t')}</h2><p>${t('x_about_mission')}</p>
+        <h2>${t('x_about_safe_t')}</h2><ul><li>${t('x_about_safe1')}</li><li>${t('x_about_safe2')}</li><li>${t('x_about_safe3')}</li></ul>
+        <h2>${t('x_about_priv_t')}</h2><p>${t('x_about_priv')}</p><p class="tiny muted">${t('x_about_src')} · v${VERSION}</p></div>`;
+  };
+
+  /* Lock screen (secure login) */
+  function lockScreen() {
+    return `<div class="lock"><img src="icons/icon.svg" alt="" width="72" height="72"><h1>NOLA HEALTH</h1><p class="muted">${t('x_tagline')}</p>
+      <div class="card"><label class="f" for="lockPin">🔒 ${t('x_enter_pin')}</label><input class="in big center" id="lockPin" type="password" inputmode="numeric" maxlength="8" autocomplete="current-password">
+      <button class="btn block big" data-action="unlock" id="unlockBtn">${t('x_unlock')}</button><p class="small red-t" id="lockErr" hidden>${t('x_pin_wrong')}</p>
+      <button class="link" data-action="lock-forgot" id="lockForgot">${t('x_forgot')}</button></div></div>`;
+  }
+
+  /* ---------- router ---------- */
+  const TITLES = { home: 'x_nav_home', health: 'x_c_health', profile: 'x_c_health', eat: 'x_c_eat', reminders: 'x_c_rem', scan: 'x_c_scan', doctor: 'x_nav_doctor', about: 'x_nav_about' };
+  function route() {
+    const raw = (location.hash || '#/home').slice(2), name = raw.split('?')[0] || 'home';
+    const view = $('#view'), nav = $('#mainnav');
+    if (DB.locked) { document.body.classList.add('locked'); nav.hidden = true; view.innerHTML = lockScreen(); setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 50); return; }
+    document.body.classList.remove('locked'); nav.hidden = false;
+    if (!ROUTES[name]) { location.replace('#/home'); return; }
+    if (name === 'profile' && S.lastRoute !== 'profile') edInit();
+    if (name !== 'scan' && S.lastRoute === 'scan' && S.scan.result) S.scan = { photo: null, items: [], meal: null, result: null, saved: false };
+    view.innerHTML = ROUTES[name]();
+    document.body.dataset.route = name;
+    $$('#mainnav a').forEach(a => { const on = a.dataset.nav === SECTION[name]; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    if (S.lastRoute !== name) { window.scrollTo(0, 0); view.focus({ preventScroll: true }); }
+    S.lastRoute = name;
+    document.title = 'NOLA HEALTH · ' + t(TITLES[name]);
+  }
+  function rerender() { const y = window.scrollY; route(); window.scrollTo(0, y); }
+  function applyLang() { $$('[data-t]').forEach(el => { el.textContent = t(el.dataset.t); }); $('#langBtn').textContent = L() === 'am' ? 'English' : 'አማርኛ'; $('#langBtn').setAttribute('aria-label', t('x_lang_label')); document.documentElement.lang = L(); }
+  function setLang(l) { I18N.set(l); DB.ui({ lang: l }); applyLang(); rerender(); }
 
   /* ---------- actions ---------- */
+  function keepRem() { const f = S.rem; [['title', 'remTitle'], ['time', 'remTime'], ['repeat', 'remRepeat'], ['date', 'remDate']].forEach(([k, id]) => { const e = $('#' + id); if (e) f[k] = e.value; }); }
+  function addMed(quiet) {
+    const f = S.med, name = (f.name || '').trim(); if (!name) { if (!quiet) toast(t('md_need_name')); return false; }
+    const d = S.ed, picked = f.medId && MD.byId[f.medId], same = picked && [picked.en, picked.am].some(x => x.toLowerCase() === name.toLowerCase());
+    const ref = same ? picked : MD.find(name), id = f.edit || uid();
+    const m = { id, medId: ref ? ref.id : null, name: same ? ref.en : name, dose: (f.dose || '').trim(), freq: f.freq || '', reason: '' };
+    d.medList = f.edit ? d.medList.map(x => x.id === id ? Object.assign({}, x, m) : x) : d.medList.concat([m]); d.noMeds = false;
+    S.med = { name: '', dose: '', freq: '', medId: null, edit: null, yes: true };
+    if (!quiet) { toast('✓ ' + t('md_saved')); rerender(); }
+    return true;
+  }
+  function saveReading() {
+    const ed = S.rdEdit && readings().find(r => r.id === S.rdEdit), type = ed ? ed.type : S.rd.type;
+    const ts = new Date($('#rdWhen').value).getTime();
+    if (!(ts > 0) || ts > Date.now() + 5 * 60e3) return toast(t('x_bad_date'));
+    let r, flag = null;
+    if (type === 'bp') { const s = +$('#rdSys').value, d = +$('#rdDia').value, p = +$('#rdPulse').value; if (!(s >= 60 && s <= 260 && d >= 30 && d <= 180)) return toast(t('x_bad_value')); r = { sys: s, dia: d, pulse: p || null }; flag = E.checkBP(s, d); }
+    if (type === 'glucose') { const v = parseFloat($('#rdG').value), mg = Math.round(E.toMgdl(v, unit())); if (!(mg >= 15 && mg <= 700)) return toast(t('x_bad_value')); r = { mg, ctx: $('#rdCtx').value }; flag = E.checkGlucose(mg, unit()); S.rd.ctx = r.ctx; }
+    if (type === 'weight') { const w = parseFloat($('#rdW').value); if (!(w >= 20 && w <= 300)) return toast(t('x_bad_value')); r = { kg: w }; }
+    r.note = ($('#rdNote').value || '').trim(); r.ts = ts;
+    let list = readings();
+    if (ed) list = list.map(x => x.id === ed.id ? Object.assign({}, x, r) : x); else list = list.concat([Object.assign({ id: uid(), type }, r)]);
+    DB.set('readings', list);
+    if (type === 'weight') { const latest = list.filter(x => x.type === 'weight').sort((a, b) => b.ts - a.ts)[0]; const pr = profile(); if (pr && latest) { pr.weight = latest.kg; DB.set('profile', pr); } }
+    S.rdEdit = null; S.rd.when = null; toast('✓ ' + t('x_reading_saved')); rerender();
+    if (flag) setTimeout(() => showAlert(flag), 200);
+  }
   const A = {
-    'toggle-lang'() { setLang(L() === 'en' ? 'am' : 'en'); },
-    'set-lang'(el) { setLang(el.dataset.v); },
-    'close-alert'() { $('#alert').hidden = true; },
-    'show-flag'(el) { showAlert(JSON.parse(el.dataset.flag)); },
-    'close-sheet'() { closeSheet(); if (S.route === 'scan') rerender(); },
-    go(el) { location.hash = '#/' + el.dataset.to; },
-    'ob-next'() {
-      if (!S.ob) obInit(false);
-      const err = obValidate(); if (err) return toast(err);
-      if (S.ob.step === OB_STEPS) return obFinish();
-      S.ob.step++; route();
-    },
-    'ob-back'() { if (S.ob.edit && S.ob.step === 1) { S.ob = null; location.hash = '#/me'; return; } S.ob.step = Math.max(0, S.ob.step - 1); route(); },
-    'ob-chip'(el) {
-      const { k, v, multi } = el.dataset, d = S.ob.d;
-      if (multi) { let arr = d[k] || []; arr = arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]; if (k === 'conditions') arr = v === 'none' ? (arr.includes('none') ? ['none'] : []) : arr.filter(x => x !== 'none'); d[k] = arr; }
-      if (k === 'conditions') { const dets = {}; document.querySelectorAll('[data-cdet]').forEach(i => { dets[i.dataset.cdet] = i.value; }); d.condDetails = Object.assign(d.condDetails || {}, dets); }
-      if (!multi) d[k] = d[k] === v && k === 'gender' ? '' : v;
+    'toggle-lang'() { setLang(L() === 'am' ? 'en' : 'am'); },
+    'alert-close'() { $('#alert').hidden = true; },
+    'remalert-close'() { $('#remAlert').hidden = true; },
+    chip(el) {
+      const { k, v } = el.dataset, d = S.ed; if (!d) return;
+      if (k === 'gender') d.gender = d.gender === v ? '' : v;
+      else if (k === 'unit') d.unit = v;
+      else if (k === 'noMeds') { if (v === '1') { if (d.medList.length && !confirm(t('md_no_confirm'))) return; d.noMeds = true; d.medList = []; } else { d.noMeds = false; S.med.yes = true; } }
+      else { let arr = d[k] || []; arr = arr.includes(v) ? arr.filter(x => x !== v) : arr.concat([v]); if (k === 'conditions') arr = v === 'none' ? (arr.includes('none') ? ['none'] : []) : arr.filter(x => x !== 'none'); d[k] = arr; }
       rerender();
     },
-    'add-reading'(el) { readingSheet(el.dataset.type); },
-    'save-reading'(el) { saveReading(el.dataset.type); },
-    'rd-ctx'(el) { el.parentNode.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === el)); },
-    'rd-tab'(el) { S.rdTab = el.dataset.v; rerender(); },
-    'del-reading'(el) { if (!confirm(t('del') + '?')) return; DB.set('readings', readings().filter(r => r.id !== el.dataset.id)); rerender(); },
-    'set-meal'(el) { S.draft.meal = el.dataset.v; rerender(); },
-    'scan-reset'() { S.draft = newDraft(); rerender(); },
-    'open-picker'(el) { openPicker(el.dataset.replace); },
-    'pick-cat'(el) { S.pickerCat = el.dataset.v; $('#pickCats').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === el)); $('#pickSearch').value = ''; $('#pickList').innerHTML = pickerList(''); },
-    'pick-food'(el) {
-      const id = el.dataset.id;
-      if (S.pickerMode === 'add' || S.pickerMode == null) { addItem(id); toast('+ ' + fname(F.byId[id])); el.style.background = '#e8f5ec'; }
-      else { const it = S.draft.items[S.pickerMode]; Object.assign(it, { foodId: id, mult: 1, custom: null, name: null, oilType: undefined }); closeSheet(); rerender(); }
+    'med-pick'(el) { const m = MD.byId[el.dataset.id]; if (!m) return; S.med.medId = m.id; S.med.name = L() === 'am' ? m.am : m.en; const i = $('#medName'); if (i) i.value = S.med.name; const dd = $('#medDose'); if (dd) dd.focus(); },
+    'med-add'() { addMed(false); },
+    'med-edit'(el) { const m = S.ed.medList.find(x => x.id === el.dataset.id); if (!m) return; S.med = { edit: m.id, medId: m.medId, name: medName(m), dose: m.dose || '', freq: m.freq || '', yes: true }; rerender(); setTimeout(() => { const i = $('#medName'); if (i) i.focus(); }, 30); },
+    'med-del'(el) { S.ed.medList = S.ed.medList.filter(x => x.id !== el.dataset.id); rerender(); },
+    'profile-save'() {
+      addMed(true);
+      const d = S.ed; ['weight', 'height', 'age'].forEach(k => { if (d[k] !== '' && d[k] != null) d[k] = +d[k]; });
+      if (d.dob) d.age = E.age(d);
+      if (!String(d.name || '').trim()) return toast(t('x_need_name'));
+      if (!(d.age > 0) || !(d.weight > 0) || !(d.height > 0)) return toast(t('x_need_body'));
+      if (!profile() && !($('#pConsent') || {}).checked) return toast(t('x_need_consent'));
+      d.conditions = d.conditions || [];
+      Object.keys(d.condDetails || {}).forEach(c => { if (!d.conditions.includes(c) || !String(d.condDetails[c]).trim()) delete d.condDetails[c]; });
+      d.meds = medsString(d); d.v4 = 1; d.updated = Date.now(); if (!d.created) d.created = Date.now();
+      if (d.unit) saveSettings({ unit: d.unit });
+      DB.set('profile', d); S.ed = null; S.lastRoute = null; toast('✓ ' + t('x_saved')); location.hash = '#/health';
     },
-    'quick-add'(el) { el.dataset.ids.split(',').forEach(addItem); rerender(); },
-    'item-set'(el) { const it = S.draft.items[+el.dataset.i]; it[el.dataset.k] = el.dataset.k === 'mult' ? +el.dataset.v : el.dataset.v; if (el.dataset.k === 'mult') it.mu = null; rerender(); },
-    'item-variant'(el) { const it = S.draft.items[+el.dataset.i]; Object.assign(it, { foodId: el.dataset.v, mult: 1, mu: null, method: undefined, oilType: undefined, oil: 'normal', salt: 'normal', confirmed: false }); rerender(); toast('⇄ ' + fname(F.byId[el.dataset.v])); },
-    async 'scan-retry'() { const d = S.draft; if (!d || !S.lastBig) return; if (!navigator.onLine) return toast(t('scan_ai_offline')); d.err = null; d.status = 'loading'; rerender();
-      try { const items = await AI.recognize(S.lastBig); d.items = d.items.concat(items); d.status = 'done'; if (!items.length) d.err = t('scan_ai_error', { e: 'no food found' }); }
-      catch (e) { d.status = 'error'; d.err = t('scan_ai_error', { e: e.message }); } rerender(); },
-    'ai-retry'(el) {
-      if (!navigator.onLine) return toast(t('q_still_offline'));
-      const chat = chatList().slice(), m = chat.find(x => x.id === el.dataset.id); if (m) m.retry = null;
-      S.coachBusy = true; saveChat(chat); rerender();
-      askAI(el.dataset.q, chat).then(msg => { S.coachBusy = false; saveChat(chat); rerender(); if (msg && settings().voiceReplies) speak(msg.text); });
+    'rd-type'(el) { S.rd.type = el.dataset.v; rerender(); },
+    'rd-save'() { saveReading(); },
+    'rd-edit'(el) { const r = readings().find(x => x.id === el.dataset.id); if (!r) return; S.rdEdit = r.id; S.rd.type = r.type; rerender(); setTimeout(() => $('#rdForm').scrollIntoView({ block: 'start' }), 30); },
+    'rd-cancel'() { S.rdEdit = null; rerender(); },
+    'rd-del'(el) { if (!confirm(t('x_del_q'))) return; DB.set('readings', readings().filter(r => r.id !== el.dataset.id)); if (S.rdEdit === el.dataset.id) S.rdEdit = null; toast(t('x_deleted')); rerender(); },
+    'meal-del'(el) { if (!confirm(t('x_del_q'))) return; DB.set('meals', meals().filter(m => m.id !== el.dataset.id)); toast(t('x_deleted')); rerender(); },
+    hist(el) { S.hist = el.dataset.v; rerender(); },
+    async 'pin-set'() { const a = $('#pin1').value, b = $('#pin2').value; if (!/^\d{4,8}$/.test(a)) return toast(t('x_pin_rule')); if (a !== b) return toast(t('x_pin_mismatch')); loader(true, t('x_securing')); await DB.enableLock(a); loader(false); toast('🔒 ' + t('x_pin_done')); rerender(); },
+    async 'pin-off'() { const p = prompt(t('x_enter_pin')); if (p == null) return; if (!(await DB.verify(p))) return toast(t('x_pin_wrong')); await DB.disableLock(); toast(t('x_pin_removed')); rerender(); },
+    async 'lock-now'() { await DB.flush(); location.reload(); },
+    async wipe() { if (!confirm(t('x_wipe_q'))) return; await DB.clear(); localStorage.removeItem('nola_lock'); location.hash = '#/home'; location.reload(); },
+    async unlock() { const p = $('#lockPin').value; loader(true, t('x_unlocking')); const ok = await DB.unlock(p); loader(false); if (!ok) { $('#lockErr').hidden = false; $('#lockPin').value = ''; return; } migrate(); route(); checkReminders(); },
+    async 'lock-forgot'() { if (!confirm(t('x_forgot_q'))) return; await DB.clear(); localStorage.removeItem('nola_lock'); location.reload(); },
+    slot(el) { S.slot = el.dataset.v; rerender(); },
+    async 'notif-allow'() { try { await Notification.requestPermission(); } catch (e) {} rerender(); },
+    async 'notif-test'() { const ok = await notify('NOLA HEALTH', t('x_test_body')); toast(ok ? '🔔 ' + t('x_test_sent') : t('x_n_denied')); },
+    'rem-kind'(el) { keepRem(); S.rem.kind = el.dataset.v; S.rem.title = ''; rerender(); },
+    'rem-med'(el) { keepRem(); S.rem.title = el.dataset.v; rerender(); },
+    'rem-day'(el) { keepRem(); const d = +el.dataset.v; S.rem.days = S.rem.days.includes(d) ? S.rem.days.filter(x => x !== d) : S.rem.days.concat([d]); rerender(); },
+    'rem-save'() {
+      keepRem(); const f = S.rem, title = (f.title || '').trim() || t('x_rk_' + f.kind);
+      if (!/^\d\d:\d\d$/.test(f.time || '')) return toast(t('x_need_time'));
+      if (f.repeat === 'days' && !f.days.length) return toast(t('x_need_days'));
+      const r = { id: uid(), kind: f.kind, title, time: f.time, days: f.repeat === 'days' ? f.days.slice() : [], date: f.repeat === 'once' ? (f.date || today()) : null, on: true, created: Date.now(), v4: 1 };
+      DB.set('reminders', rems().concat([r])); S.rem = { kind: f.kind, repeat: 'daily', days: [] }; toast('✓ ' + t('x_rem_saved')); rerender();
     },
-    'item-del'(el) { S.draft.items.splice(+el.dataset.i, 1); rerender(); },
-    analyze() { const d = S.draft; if (!d.items.length) return; runAnalysis(d.items, d.meal, d.photo); },
-    'edit-meal'() { location.hash = '#/scan'; },
-    'save-meal'() {
-      const r = S.result; if (r.savedId) return;
-      const m = { id: uid(), ts: Date.now(), meal: r.meal, items: r.items, totals: r.a.totals, verdict: r.a.verdict, score: r.sc ? r.sc.score : null, photo: settings().lowData ? null : r.photo };
-      DB.set('meals', meals().concat([m])); r.savedId = m.id; S.draft = null; S.diaryDate = dayKey(m.ts);
-      rerender(); toast(t('res_saved'));
+    'rem-done'(el) { const list = rems(), r = list.find(x => x.id === el.dataset.id); if (!r) return; r.doneDay = today(); DB.set('reminders', list); $('#remAlert').hidden = true; toast('✓ ' + t('x_well_done')); rerender(); },
+    'rem-del'(el) { if (!confirm(t('x_del_q'))) return; DB.set('reminders', rems().filter(r => r.id !== el.dataset.id)); rerender(); },
+    'goal-add'(el) { const k = el.dataset.v; DB.set('reminders', rems().concat([{ id: uid(), kind: 'goal', sug: k, title: t('x_g_' + k), time: { water: '10:00', veg: '12:30', bp: '08:00', sugar: '07:30', meds: '08:00', walk: '17:30', walk_gentle: '17:30' }[k] || '09:00', days: [], date: null, on: true, created: Date.now(), v4: 1 }])); toast('✓ ' + t('x_goal_added')); rerender(); },
+    'food-add'(el) { S.scan.items.push({ foodId: el.dataset.id, mult: 1, oil: 'normal', salt: 'normal', conf: null }); S.q = ''; rerender(); },
+    'item-mult'(el) { S.scan.items[+el.dataset.i].mult = +el.dataset.v; rerender(); },
+    'item-del'(el) { S.scan.items.splice(+el.dataset.i, 1); rerender(); },
+    'scan-meal'(el) { S.scan.meal = el.dataset.v; rerender(); },
+    async 'scan-ai'() {
+      loader(true, t('x_scanning'));
+      try { const items = await AI.recognize(S.scan.photo); loader(false); if (!items.length) toast(t('x_ai_nofood')); else { S.scan.items = S.scan.items.concat(items); toast('✨ ' + t('x_ai_found', { n: items.length })); } }
+      catch (e) { loader(false); toast(t('x_ai_failed', { e: String(e.message || e).slice(0, 60) })); }
+      rerender();
     },
-    'open-meal'(el, ev) { if (ev.target.closest('[data-action="del-meal"]')) return; const m = meals().find(x => x.id === el.dataset.id); if (m) runAnalysis(m.items, m.meal, m.photo, m.id); },
-    'del-meal'(el) { if (!confirm(t('del') + '?')) return; DB.set('meals', meals().filter(m => m.id !== el.dataset.id)); toast(t('diary_deleted')); rerender(); },
-    day(el) { const d = new Date(S.diaryDate + 'T12:00:00'); d.setDate(d.getDate() + +el.dataset.v); if (d > new Date()) return; S.diaryDate = dayKey(d); rerender(); },
+    'scan-go'() { const sc = S.scan; if (!sc.items.length) return; sc.result = { a: E.analyze(sc.items, profile() || DEFAULT_PR, sc.meal || autoSlot()) }; sc.saved = false; rerender(); window.scrollTo(0, 0); },
+    'scan-save'() { const sc = S.scan, a = sc.result.a; DB.set('meals', meals().concat([{ id: uid(), ts: Date.now(), meal: sc.meal || autoSlot(), items: sc.items, totals: a.totals, verdict: a.verdict }])); sc.saved = true; toast('✓ ' + t('x_saved_history')); rerender(); },
+    'scan-new'() { S.scan = { photo: null, items: [], meal: null, result: null, saved: false }; rerender(); },
+    'ai-gear'() { S.showAi = !S.showAi; rerender(); },
+    'ai-save'(el, quiet) { saveSettings({ aiBase: $('#aiBase').value.trim(), aiKey: $('#aiKey').value.trim(), aiModel: $('#aiModel').value.trim() }); if (quiet !== true) { toast('✓ ' + t('x_saved')); rerender(); } },
+    async 'ai-test'() { A['ai-save'](null, true); const out = $('#aiTestOut'); if (!AI.enabled()) return toast(t('x_ai_fill')); out.textContent = '…'; try { await AI.chat([{ role: 'user', content: 'Reply with just: OK' }], { max_tokens: 5, timeout: 20000 }); out.textContent = '✓ ' + t('x_ai_ok'); } catch (e) { out.textContent = '✕ ' + t('x_ai_failed', { e: String(e.message || e).slice(0, 80) }); } },
+    'ai-remove'() { saveSettings({ aiKey: '' }); toast(t('x_ai_removed')); rerender(); },
+    'chat-clear'() { if (!confirm(t('x_clear_q'))) return; DB.set('doctorChat', []); rerender(); },
     ask(el) { ask(el.dataset.q); },
-    'clear-chat'() { saveChat([]); rerender(); },
-    'card-save'(el) { cardAction(el.dataset.id, true); },
-    'card-no'(el) { cardAction(el.dataset.id, false); },
-    'card-ctx'(el) { const chat = chatList().slice(), m = chat.find(x => x.id === el.dataset.id); if (m && m.card) { m.card.ctx = el.dataset.v; saveChat(chat); rerender(); } },
-    speak(el) { const m = chatList().find(x => x.id === el.dataset.id); if (m) speak(m.text); },
-    mic() {
-      const V = window.NolaVoice;
-      if (!V.sttSupported) return toast(t('voice_no_stt'));
-      if (S.listening) { V.stop(); return; }
-      V.stopSpeaking(); S.listening = true; const b = $('#micBtn'); if (b) b.classList.add('on'); const inp = $('#chatIn'); if (inp) inp.placeholder = t('voice_listening');
-      V.listen({ lang: L(), onResult: (txt) => { const i = $('#chatIn'); if (i) i.value = txt; },
-        onEnd: (fin) => { S.listening = false; const b2 = $('#micBtn'); if (b2) b2.classList.remove('on'); const i = $('#chatIn'); const q = (fin || (i && i.value) || '').trim(); if (i) { i.value = ''; i.placeholder = t('coach_ph'); } if (q) ask(q); },
-        onError: (e) => { S.listening = false; const b2 = $('#micBtn'); if (b2) b2.classList.remove('on'); toast(e === 'not-allowed' ? t('voice_denied') : e === 'language-not-supported' ? t('voice_lang_unsupported') : t('voice_error', { e })); } });
-    },
-    'set-textsize'(el) { DB.ui({ textSize: el.dataset.v }); applyTextSize(); rerender(); },
-    'item-method'(el) {
-      const it = S.draft.items[+el.dataset.i], f = F.byId[it.foodId], g = F.methodGroup(f), mm = g && F.METHODS[g].find(x => x[0] === el.dataset.v);
-      if (!mm) return; it.method = it.method === mm[0] ? undefined : mm[0];
-      Object.assign(it, { oil: 'normal', salt: 'normal', oilType: undefined }, it.method ? (({ extra, ...o }) => o)(mm[1]) : {}); rerender();
-    },
-    'item-measure'(el) { const it = S.draft.items[+el.dataset.i], ms = F.measures(F.byId[it.foodId]).find(x => x.u === el.dataset.v); if (!ms) return; if (it.mu === ms.u) { it.mu = null; rerender(); return; } it.mu = ms.u; it.mn = Math.max(1, Math.round(it.mult / ms.frac)); it.mult = Math.round(it.mn * ms.frac * 1000) / 1000; rerender(); },
-    'item-mstep'(el) { const it = S.draft.items[+el.dataset.i], ms = F.measures(F.byId[it.foodId]).find(x => x.u === it.mu); if (!ms) return; it.mn = Math.max(1, (it.mn || 1) + +el.dataset.v); it.mult = Math.round(it.mn * ms.frac * 1000) / 1000; rerender(); },
-    'edit-profile'() { obInit(true); location.hash = '#/onboarding'; },
-    'set-unit'(el) { saveSettings({ unit: el.dataset.v }); const pr = profile(); pr.unit = el.dataset.v; DB.set('profile', pr); rerender(); },
-    'save-ai'() { saveSettings({ aiBase: $('#aiBase').value.trim(), aiKey: $('#aiKey').value.trim(), aiModel: $('#aiModel').value.trim() }); toast(t('set_saved')); },
-    async 'test-ai'() {
-      A['save-ai'](); const st = $('#aiStatus'); st.textContent = '…';
-      try { const r = await AI.chat([{ role: 'user', content: 'Reply with just: OK' }], { max_tokens: 5, timeout: 20000 }); st.textContent = t('set_test_ok') + ' (' + r.slice(0, 20) + ')'; st.style.color = 'var(--good)'; }
-      catch (e) { st.textContent = t('set_test_fail', { e: e.message }); st.style.color = 'var(--red)'; }
-    },
-    export() {
-      const data = DB.dump(); if (data.settings) data.settings.aiKey = '';
-      const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }); const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = 'nola-health-' + dayKey(Date.now()) + '.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-    },
-    async reset() { if (!confirm(t('set_reset_q'))) return; await DB.clear(); S.draft = S.result = S.ob = null; location.hash = '#/onboarding'; route(); },
   };
-  function setLang(l) { I18N.set(l); DB.ui({ lang: l }); if (!DB.locked) saveSettings({ lang: l }); document.documentElement.lang = l; rerender(); }
-  function applyTextSize() { const u = DB.ui(), ts = u.textSize || 'm'; document.documentElement.dataset.ts = ts; document.documentElement.dataset.simple = u.simple ? '1' : ''; }
 
   document.addEventListener('click', ev => {
-    const el = ev.target.closest('[data-action]'); if (!el) return;
-    if (el.id === 'sheet' || el.id === 'alert') return;
+    const el = ev.target.closest('[data-action]'); if (!el || el.disabled) return;
     const fn = A[el.dataset.action]; if (!fn) return;
-    if (el.tagName === 'BUTTON' || el.tagName === 'A') ev.preventDefault();
-    fn(el, ev);
+    ev.preventDefault(); fn(el, ev);
   });
-  $('#sheet').addEventListener('click', ev => { if (ev.target.id === 'sheet') A['close-sheet'](); });
   document.addEventListener('input', ev => {
     const el = ev.target;
-    if (el.dataset.bind && S.ob) {
-      S.ob.d[el.dataset.bind] = el.type === 'checkbox' ? el.checked : el.value;
-      if (['weight', 'height'].includes(el.dataset.bind)) { const b = E.bmi(S.ob.d); const bl = $('#bmiLive'); if (bl) bl.innerHTML = b ? `${t('bmi')}: <b>${b}</b> — ${t('bmi_' + E.bmiCat(b))}` : ''; }
-      if (el.dataset.bind === 'dob' && el.value) { const a = E.age({ dob: el.value }); S.ob.d.age = a; const ai = $('#ob_age'); if (ai) ai.value = a; }
-    }
-    if (el.dataset.cdet && S.ob) { S.ob.d.condDetails = S.ob.d.condDetails || {}; S.ob.d.condDetails[el.dataset.cdet] = el.value; }
-    if (el.dataset.actionInput === 'item-ing') S.draft.items[+el.dataset.i].ingredients = el.value;
-    if (el.id === 'pickSearch') $('#pickList').innerHTML = pickerList(el.value);
+    if (el.dataset.f && S.ed) S.ed[el.dataset.f] = el.value;
+    if (el.dataset.cdet && S.ed) S.ed.condDetails[el.dataset.cdet] = el.value;
+    if (el.id === 'medName') { S.med.name = el.value; S.med.medId = null; const b = $('#medSug'); if (b) b.innerHTML = medSug(el.value); }
+    if (el.id === 'medDose') S.med.dose = el.value;
+    if (el.id === 'foodSearch') { S.q = el.value; const b = $('#foodRes'); if (b) b.innerHTML = foodChips(el.value ? F.search(el.value).slice(0, 8) : POPULAR.map(id => F.byId[id]).filter(Boolean)); }
+    if (el.id === 'rdWhen' && !S.rdEdit) S.rd.when = el.value;
+    if (el.id === 'chatIn') { el.style.height = 'auto'; el.style.height = Math.min(140, el.scrollHeight) + 'px'; }
   });
-  document.addEventListener('change', ev => {
+  document.addEventListener('change', async ev => {
     const el = ev.target;
-    if (el.id === 'camIn' || el.id === 'upIn') onPhoto(el.files[0]);
-    if (el.dataset.actionChange === 'voice-replies') { saveSettings({ voiceReplies: el.checked }); toast(t('set_saved')); if (!el.checked) window.NolaVoice.stopSpeaking(); }
-    if (el.dataset.actionChange === 'item-confirm') { S.draft.items[+el.dataset.i].confirmed = el.checked; rerender(); }
-    if (el.dataset.actionChange === 'lowdata') { saveSettings({ lowData: el.checked }); applySettings(); toast(t(el.checked ? 'v3_lowdata_on' : 'set_saved')); rerender(); }
-    if (el.dataset.actionChange === 'simple') { saveSettings({ simple: el.checked }); applySettings(); toast(t(el.checked ? 'v3_simple_on' : 'set_saved')); rerender(); }
-    if (el.id === 'importIn' && el.files[0]) { const fr = new FileReader(); fr.onload = () => { try { const d = JSON.parse(fr.result); ['profile', 'meals', 'readings', 'chat', 'glogs', 'memory', 'feedback', 'plan', 'shopping', 'prices', 'academy', 'activities', 'checkups', 'badges', 'shares', 'supporting', 'restaurant', 'challenges', 'reminders', 'daily', 'labs', 'aiQueue'].forEach(k => { if (d[k]) DB.set(k, d[k]); }); if (d.settings) saveSettings(Object.assign({}, d.settings, { aiKey: settings().aiKey })); toast(t('set_imported')); location.hash = '#/home'; route(); } catch (e) { toast('Invalid file'); } }; fr.readAsText(el.files[0]); }
+    if (el.id === 'medFreq') S.med.freq = el.value;
+    if (el.id === 'remRepeat') { keepRem(); rerender(); }
+    if (el.dataset.change === 'rem-on') { const list = rems(), r = list.find(x => x.id === el.dataset.id); if (r) { r.on = el.checked; DB.set('reminders', list); } }
+    if (el.dataset.change === 'goal-check') { const list = rems(), r = list.find(x => x.id === el.dataset.id); if (r) { r.doneDay = el.checked ? today() : null; DB.set('reminders', list); if (el.checked) toast('✓ ' + t('x_well_done')); rerender(); } }
+    if ((el.id === 'camIn' || el.id === 'upIn') && el.files[0]) { loader(true, t('x_preparing')); try { S.scan.photo = await compressImage(el.files[0], 1024, 0.8); } catch (e) { toast(t('x_photo_err')); } loader(false); rerender(); }
+    if (el.id === 'labFile' && el.files[0]) { try { const img = await compressImage(el.files[0], 1400, 0.85); const i = $('#chatIn'); const q = i ? i.value : ''; if (i) i.value = ''; ask(q, img); } catch (e) { toast(t('x_photo_err')); } }
   });
   document.addEventListener('submit', ev => { if (ev.target.id === 'chatForm') { ev.preventDefault(); const i = $('#chatIn'); const q = i.value; i.value = ''; ask(q); } });
-  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('#alert').hidden) $('#alert').hidden = true; else if (!$('#sheet').hidden) A['close-sheet'](); } });
-  window.addEventListener('hashchange', route);
-  function net() { if (window.NolaV3) window.NolaV3.updNet(); else $('#netBadge').hidden = navigator.onLine; }
-  window.addEventListener('online', net); window.addEventListener('offline', net);
-
-  function applySettings() { const st = settings(); I18N.set(DB.ui().lang || st.lang); document.documentElement.lang = I18N.lang; document.body.classList.toggle('lowdata', !!st.lowData); document.documentElement.dataset.simple = st.simple ? '1' : ''; DB.ui({ simple: !!st.simple, lowData: !!st.lowData }); }
-  function afterUnlock() { applySettings(); if (window.NolaV31) window.NolaV31.migrate(); if (!location.hash || location.hash === '#/lock') location.hash = '#/home'; route(); }
-  let hiddenAt = 0;
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { hiddenAt = Date.now(); window.NolaVoice && window.NolaVoice.stopSpeaking(); return; }
-    if (DB.encrypted && !DB.locked && settings().autoLock && hiddenAt && Date.now() - hiddenAt > 5 * 6e4) DB.flush().then(() => location.reload());
+  document.addEventListener('keydown', ev => {
+    if (ev.target.id === 'chatIn' && ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); $('#chatForm').requestSubmit(); }
+    if (ev.target.id === 'lockPin' && ev.key === 'Enter') A.unlock();
+    if (ev.key === 'Escape') $('#alert').hidden = true;
   });
+  window.addEventListener('hashchange', route);
+
+  /* ---------- boot ---------- */
   async function boot() {
-    applyTextSize(); I18N.set(DB.ui().lang || 'en');
+    const ui = DB.ui(); I18N.set(ui.lang === 'am' ? 'am' : 'en');
     await DB.init();
-    if (!DB.locked) { applySettings(); if (window.NolaV31) window.NolaV31.migrate(); }
-    net(); route();
-    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    if (!DB.locked) migrate();
+    applyLang(); route();
+    setInterval(checkReminders, 20000); setTimeout(checkReminders, 1500);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkReminders(); });
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       const had = !!navigator.serviceWorker.controller; let reloaded = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded && !S.coachBusy && !(S.draft && S.draft.items.length)) { reloaded = true; DB.flush().then(() => location.reload()); } });
-      navigator.serviceWorker.register('sw.js').then(r => r.update && r.update()).catch(() => {});
+      navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !reloaded) { reloaded = true; location.reload(); } });
+      navigator.serviceWorker.register('sw.js').catch(() => {});
     }
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else setTimeout(boot, 0);
-  window.NolaApp = { S, ROUTES, A, VERSION, route, rerender, ask, toast, mealRow, readingBanners, fmtG, TIPS, runQueued, setLang, applySettings, openSheet, closeSheet, showAlert, md, esc, uid, dayKey, profile, settings, saveSettings, meals, readings,
-    defaultMeal, condLabel, newDraft, openPicker, compressImage, runAnalysis, readingSheet, chatList, afterUnlock, applyTextSize, latest };
+  window.NolaApp = { VERSION, S, ROUTES, A, route, rerender, profile, readings, meals, rems, settings, setLang, migrate, checkReminders, ask, inScope, labLines, myReadingLines, rankDishes, medLines, dayKey };
+  boot();
 })();
