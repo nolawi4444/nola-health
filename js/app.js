@@ -1,7 +1,7 @@
 /* NOLA HEALTH — app shell, router, screens */
 (function () {
   'use strict';
-  const VERSION = '2.0.0';
+  const VERSION = '3.0.0';
   const F = window.NolaFoods, E = window.NolaEngine, CH = window.NolaCharts, AI = window.NolaAI, DB = window.NolaDB;
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -68,7 +68,7 @@
 
   /* ---------- router ---------- */
   const ROUTES = { onboarding: rOnboarding, home: rHome, scan: rScan, result: rResult, diary: rDiary, coach: rCoach, me: rMe, readings: rReadings, learn: rLearn, settings: rSettings };
-  const NO_FAB = ['coach', 'onboarding', 'lock', 'report'];
+  const NO_FAB = ['coach', 'onboarding', 'lock', 'report', 'home'];
   function route() {
     let name = (location.hash.replace(/^#\/?/, '').split('?')[0]) || 'home';
     const nav = $('#bottomnav'), fab = $('#fab');
@@ -79,7 +79,7 @@
     if (!ROUTES[name]) name = 'home';
     if (name === 'result' && !S.result) name = 'scan';
     nav.hidden = name === 'onboarding'; fab.hidden = NO_FAB.includes(name);
-    const sec = { home: 'home', diary: 'diary', scan: 'scan', result: 'scan', coach: 'coach' }[name] || 'me';
+    const sec = { home: 'home', health: 'health', diary: 'health', readings: 'health', glucose: 'health', labs: 'health', report: 'health', scan: 'scan', result: 'scan', coach: 'coach' }[name] || 'me';
     nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.nav === sec));
     $('#brandName').textContent = 'NOLA HEALTH';
     S.route = name;
@@ -87,7 +87,7 @@
     const v = $('#view'); v.innerHTML = ROUTES[name]();
     if (S._scrollTop !== false) { window.scrollTo(0, 0); v.classList.remove('enter'); void v.offsetWidth; v.classList.add('enter'); }
     S._scrollTop = true;
-    afterRender(name);
+    afterRender(name); net();
   }
   function rerender() { S._scrollTop = false; const y = window.scrollY; route(); window.scrollTo(0, y); }
   function afterRender(name) {
@@ -106,7 +106,7 @@
   function rOnboarding() {
     if (!S.ob) obInit(false);
     const { step, d } = S.ob;
-    if (step === 0) return `<div class="hero"><div class="plate"></div><div style="font-size:42px">🥗</div><h1>${t('ob_welcome_title')}</h1><p>${t('ob_welcome_body')}</p></div>
+    if (step === 0) return `${window.NolaV3 ? window.NolaV3.langPicker(true) : ''}<div class="hero"><div class="plate"></div><div style="font-size:42px">🥗</div><h1>${t('ob_welcome_title')}</h1><p>${t('ob_welcome_body')}</p></div>
       <div class="trust"><div><i>🔬</i>${t('ob_trust1')}</div><div><i>📶</i>${t('ob_trust2')}</div><div><i>🔒</i>${t('ob_trust3')}</div></div>
       <button class="btn block" data-action="ob-next" id="obStart">${t('ob_start')} →</button>
       <p class="tiny muted center" style="margin-top:14px">${t('disclaimer')}</p>`;
@@ -256,14 +256,14 @@
     const d = S.draft, ai = AI.enabled();
     const items = d.items.map((it, i) => itemCard(it, i)).join('');
     const quick = [['injera_teff', 'shiro'], ['beyaynetu', 'injera_teff'], ['firfir'], ['tibs', 'injera_teff'], ['ful', 'dabo'], ['misir', 'gomen', 'injera_teff']];
-    return `<div class="row between"><h1>${t('scan_title')}</h1>${d.items.length || d.photo ? `<button class="link small" data-action="scan-reset">↺</button>` : ''}</div>
+    return `${window.NolaV3 ? window.NolaV3.steps(d.items.length ? 2 : 1) : ''}<div class="row between"><h1>${t('scan_title')}</h1>${d.items.length || d.photo ? `<button class="link small" data-action="scan-reset">↺ ${t('v3_start_over')}</button>` : ''}</div>
       <div class="seg" style="margin-bottom:12px">${['breakfast', 'lunch', 'dinner', 'snack'].map(m => `<button class="${d.meal === m ? 'on' : ''}" data-action="set-meal" data-v="${m}">${t('meal_' + m)}</button>`).join('')}</div>
       <div class="photo-box">${d.photo ? `<img src="${d.photo}" alt="meal photo" style="${d.items.length ? 'max-height:150px' : ''}">` : `<div style="font-size:44px">📷</div><div class="muted small">${ai ? t('scan_ai_on') : ''}</div>`}
         ${d.status === 'loading' ? `<div class="spinner"></div><div class="small">${t('scan_analyzing')}</div>` : ''}
         <div class="scan-btns"><label class="btn"><input type="file" accept="image/*" capture="environment" id="camIn" hidden>📸 ${t('scan_take')}</label><label class="btn ghost"><input type="file" accept="image/*" id="upIn" hidden>🖼️ ${t('scan_upload')}</label></div>
       </div>
-      ${ai ? `<p class="tiny muted">✨ ${t('scan_ai_on')} · ${esc(AI.cfg().model)}</p>` : `<div class="note">📴 ${t('scan_ai_off')}</div>`}
-      ${d.err ? `<div class="banner amber">${esc(d.err)}</div>` : ''}
+      ${ai ? (navigator.onLine ? `<p class="tiny muted">✨ ${t('scan_ai_on')} · ${esc(AI.cfg().model)} · ${t('scan_needs_net')}</p>` : `<div class="note">📶 ${t('scan_ai_offline')}</div>`) : `<div class="note">📴 ${t('scan_ai_off')}</div>`}
+      ${d.err ? `<div class="banner amber">${esc(d.err)}${S.lastBig && ai ? ` <button class="btn sm" data-action="scan-retry" id="scanRetry">↻ ${t('v3_retry')}</button>` : ''}</div>` : ''}
       <div class="row between" style="margin-top:14px"><h2 style="margin:0">${t('scan_detected')}</h2><button class="btn sm soft" data-action="open-picker" id="addFoodBtn">+ ${t('scan_add_food')}</button></div>
       ${d.items.length ? `<p class="small muted">${t('scan_correct_hint')}</p>${items}` : `<div class="card center muted small">${t('scan_empty')}<div class="chips" style="justify-content:center;margin-top:10px">${quick.map(q => `<button class="chip sm" data-action="quick-add" data-ids="${q.join(',')}">${q.map(id => fname(F.byId[id])).join(' + ')}</button>`).join('')}</div></div>`}
       <div class="note">ℹ️ ${t('estimates_note')}</div>
@@ -284,14 +284,20 @@
         <div class="meta">${f ? esc(tr(f.base)) : t('scan_ai_item')}${it.aiName && f && !f.name.en.toLowerCase().includes(it.aiName.toLowerCase()) ? ` · AI: “${esc(it.aiName)}”` : ''}</div></div>
         <div class="row" style="gap:6px">${confBadge(it)}<button class="iconbtn" data-action="item-del" data-i="${i}" aria-label="${t('del')}">✕</button></div></div>
       <div class="ctl"><div class="lbl">${t('scan_portion')}</div><div class="chips">${portions.map(m => `<button class="chip sm ${Math.abs(it.mult - m) < 0.01 ? 'on' : ''}" data-action="item-set" data-i="${i}" data-k="mult" data-v="${m}">${f ? portionLabel(f, m) : E.frac(m) + '×'}</button>`).join('')}</div></div>
+      ${variantRow(f, i)}<details class="more-ctl" ${settings().simple ? '' : 'open'}><summary class="small">${t('v3_more_details')}</summary>
       ${(f ? f.oil > 0 : true) ? `<div class="ctl grid2"><div><div class="lbl">${t('scan_oil')}</div>${seg('oil', ['low', 'normal', 'high'], lv)}</div>${f && f.oil > 0 ? `<div><div class="lbl">${t('oil_type')}</div><div class="seg">${['veg', 'kibbeh'].map(v => `<button class="${(it.oilType || f.oilType) === v ? 'on' : ''}" data-action="item-set" data-i="${i}" data-k="oilType" data-v="${v}">${v === 'veg' ? '🌻 ' + t('oil_veg_s') : '🧈 ' + t('oil_kibbeh_s')}</button>`).join('')}</div></div>` : '<div></div>'}</div>` : ''}
       ${(f ? f.salt : true) ? `<div class="ctl"><div class="lbl">${t('scan_salt')}</div>${seg('salt', ['low', 'normal', 'high'], lv)}</div>` : ''}
       ${f ? measureCtl(f, it, i) : ''}${f && F.methodGroup(f) ? `<div class="ctl"><div class="lbl">${t('scan_method')}</div><div class="chips">${F.METHODS[F.methodGroup(f)].map(([m]) => `<button class="chip sm ${it.method === m ? 'on' : ''}" data-action="item-method" data-i="${i}" data-v="${m}">${t('m_' + F.methodGroup(f) + '_' + m)}</button>`).join('')}</div></div>` : ''}
       <div class="ctl"><div class="lbl">${t('scan_ingredients')}</div><input class="in" style="min-height:38px;padding:8px 10px" data-action-input="item-ing" data-i="${i}" value="${esc(it.ingredients || '')}" placeholder="${f && f.id === 'shiro' ? 'chickpea flour, onion, oil, berbere' : '…'}">${it.cooking ? `<div class="tiny muted" style="margin-top:4px">${t('scan_cooking')}: ${esc(it.cooking)}</div>` : ''}</div>
+      </details>
       <div class="row between" style="margin-top:10px"><span class="small"><b>${R(n.kcal)}</b> kcal · <b>${R(n.c)}</b> g ${t('n_c')} · <b>${R(n.na)}</b> mg Na</span><button class="link small" data-action="open-picker" data-replace="${i}">⇄ ${t('scan_replace')}</button></div>
       ${f && f.note ? `<div class="tiny muted" style="margin-top:6px">💬 ${esc(tr(f.note))}</div>` : ''}
       <label class="check sm" style="margin-top:8px"><input type="checkbox" data-action-change="item-confirm" data-i="${i}" ${it.confirmed ? 'checked' : ''}><span class="small">${t('scan_confirm_item')}</span></label>
       <div class="tiny muted" style="margin-top:4px">${t('source')}: ${esc(f ? f.src : 'AI vision estimate')}</div></div>`;
+  }
+  function variantRow(f, i) {
+    const v = f && F.variantsOf(f.id); if (!v || !v.ids.length) return '';
+    return `<div class="ctl variants"><div class="lbl">${t('v3_recipes_vary', { a: R(v.min), b: R(v.max) })}</div><div class="chips">${v.ids.map(id => `<button class="chip sm" data-action="item-variant" data-i="${i}" data-v="${id}">${esc(fname(F.byId[id]))}</button>`).join('')}</div></div>`;
   }
   function measureCtl(f, it, i) {
     const ms = F.measures(f); if (!ms.length) return '';
@@ -325,7 +331,9 @@
     try {
       const big = await compressImage(file, low ? 512 : 1024, low ? 0.6 : 0.8);
       d.photo = await compressImage(file, 360, 0.6); d.err = null;
-      if (AI.enabled()) {
+      S.lastBig = big;
+      if (AI.enabled() && !navigator.onLine) { d.err = t('scan_ai_offline'); rerender(); openPicker(); }
+      else if (AI.enabled()) {
         d.status = 'loading'; rerender();
         try { const items = await AI.recognize(big); d.items = d.items.concat(items); d.status = 'done'; if (!items.length) d.err = t('scan_ai_error', { e: 'no food found' }); }
         catch (e) { d.status = 'error'; d.err = t('scan_ai_error', { e: e.message }); }
@@ -334,8 +342,8 @@
     } catch (e) { toast('Photo error: ' + e.message); }
   }
   function runAnalysis(items, meal, photo, savedId) {
-    const a = E.analyze(items, profile(), meal);
-    S.result = { a, items: JSON.parse(JSON.stringify(items)), meal, photo, savedId: savedId || null, ts: Date.now() };
+    const a = E.analyze(items, profile(), meal), sc = window.NolaScore.compute(a, items, profile(), meal);
+    S.result = { a, sc, items: JSON.parse(JSON.stringify(items)), meal, photo, savedId: savedId || null, ts: Date.now() };
     location.hash = '#/result';
   }
 
@@ -346,9 +354,12 @@
     const nc = (k, unit) => `<div class="nc"><div class="v">${CH.fmt(tt[k])}<span class="small muted"> ${unit}</span></div><div class="k">${t('n_' + k)}</div></div>`;
     const kc = { c: tt.c * 4, p: tt.p * 4, f: tt.f * 9 }, ks = kc.c + kc.p + kc.f || 1;
     const why = a.why.map(w => `<li class="${w.good ? 'good' : w.lvl === 2 ? 'l2' : w.lvl === 1 ? 'l1' : ''}">${esc(w.text)}</li>`).join('');
-    return `<div class="row between"><h1>${t('res_title')}</h1><span class="pill info">${t('meal_' + meal)}</span></div>
-      <div class="verdict ${a.verdict}" id="verdict"><div class="row"><span class="vi">${icon}</span><div><div class="vt">${t('verdict_' + a.verdict)}</div><div class="small">${t('verdict_' + a.verdict + '_d')}</div></div></div>
+    const sc = S.result.sc || window.NolaScore.compute(a, items, profile(), meal);
+    return `${window.NolaV3 ? window.NolaV3.steps(3) : ''}<div class="row between"><h1>${t('res_title')}</h1><span class="pill info">${t('meal_' + meal)}</span></div>
+      <div class="verdict ${a.verdict}" id="verdict"><div class="vcolor" id="vcolor">${{ green: '🟢', yellow: '🟡', red: '🔴' }[sc.color]} ${t('col_' + sc.color)}</div><div class="row"><span class="vi">${icon}</span><div><div class="vt">${t('verdict_' + a.verdict)}</div><div class="small">${t('v3_verdict_' + a.verdict + '_simple')}</div></div></div>
         <div class="tiny" style="margin-top:8px;opacity:.95">${esc(items.map(it => (it.foodId ? fname(F.byId[it.foodId]) : it.name) + ' (' + (it.mu && it.mn ? it.mn + ' ' + t('u_' + it.mu) : it.foodId ? portionLabel(F.byId[it.foodId], it.mult) : E.frac(it.mult) + '×') + ')').join(' · '))}</div></div>
+      <p class="tiny muted notdx">🩺 ${t('v3_not_dx')}</p>
+      ${window.NolaV3 ? window.NolaV3.scoreCard(sc) : ''}
       ${a.ethiopian ? `<div class="banner" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0">🇪🇹 ${t('res_traditional')}</div>` : ''}
       <div class="card"><h3>${t('res_why')} — ${t('res_for_you')}</h3><ul class="clean why">${why}</ul></div>
       ${a.tips.length ? `<div class="card"><h3>💡 ${t('res_tips')}</h3><ul class="clean">${a.tips.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
@@ -390,7 +401,9 @@
   function botMsg(m) {
     const why = m.why && m.why.length ? `<details class="why-box"><summary>💡 ${t('nai_why')}</summary><ul>${m.why.map(w => `<li>${esc(w)}</li>`).join('')}</ul></details>` : '';
     const links = (m.links || []).map(([to, lab]) => `<a class="btn sm soft" href="#/${to}">${esc(lab)} →</a>`).join(' ');
-    return `<div class="msg bot" data-mid="${m.id || ''}"><div class="mt">${md(m.text)}</div>${chatCard(m)}${why}${links ? `<div class="row wrap" style="gap:6px;margin-top:8px">${links}</div>` : ''}${m.sources && m.sources.length ? `<span class="src">📚 ${esc(m.sources.join(' · '))}</span>` : ''}
+    const qn = m.queued ? `<div class="qnote ${m.queued === 'sent' ? 'sent' : ''}">${m.queued === 'sent' ? '✓ ' + t('q_sent') : '📶 ' + t('q_will_send')}</div>` : '';
+    const rt = m.retry ? `<button class="btn sm" data-action="ai-retry" data-id="${m.id}" data-q="${esc(m.retry)}">↻ ${t('v3_retry')}</button>` : '';
+    return `<div class="msg bot" data-mid="${m.id || ''}"><div class="mt">${md(m.text)}</div>${qn}${rt}${chatCard(m)}${why}${links ? `<div class="row wrap" style="gap:6px;margin-top:8px">${links}</div>` : ''}${m.sources && m.sources.length ? `<span class="src">📚 ${esc(m.sources.join(' · '))}</span>` : ''}
       ${m.id && !m.card ? `<div class="msg-tools">${window.NolaVoice.ttsSupported ? `<button class="fbb" data-action="speak" data-id="${m.id}" aria-label="${t('voice_read')}">🔊</button>` : ''}${window.NolaFeatures.fbBtns('chat', m.id)}</div>` : ''}</div>`;
   }
   function rCoach() {
@@ -427,17 +440,14 @@
       const r = c === 'today' ? B.today(pr) : c === 'dinner' ? B.dinner(pr) : c === 'report' ? B.report(pr, unit) : c === 'restaurant' ? { text: t('nai_restaurant'), why: B.personalWhy(pr), links: [['restaurant', t('hub_restaurant')]] } : { text: t('nai_budget'), why: [t('pl_why_cheap')], links: [['planner', t('hub_planner')]] };
       speakMsg = pushBot(chat, Object.assign({ topic: c }, r));
     } else if (!flag) {
-      if (AI.enabled()) {
+      const lab = window.NolaV3 && window.NolaV3.labAnswer(q, pr);
+      if (lab) speakMsg = pushBot(chat, lab);
+      else if (AI.enabled() && !navigator.onLine) {
+        const qid = window.NolaV3.queue.add(q), a = B.answer(q, pr);
+        speakMsg = pushBot(chat, { text: t('q_offline_now') + '\n\n' + a.text, sources: a.sources, why: a.why, topic: a.topic, queued: qid });
+      } else if (AI.enabled()) {
         saveChat(chat); S.coachBusy = true; rerender();
-        try {
-          const T = E.targets(pr), hist = chat.filter(m => m.text).slice(settings().lowData ? -4 : -10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
-          let txt = (await AI.chat([{ role: 'system', content: AI.coachSystem(pr, T, L()) + '\n' + B.context(pr, unit) }, ...hist])).trim();
-          let why = []; const mm = txt.match(/\n\s*\**(Why|ለምን)\**\s*[:：]\s*([\s\S]+)$/i); if (mm) { why = [mm[2].trim()]; txt = txt.slice(0, mm.index).trim(); }
-          speakMsg = pushBot(chat, { text: txt, why, sources: ['AI · ' + AI.cfg().model], topic: window.NolaCoach.detect(q) });
-        } catch (e) {
-          const a = B.answer(q, pr);
-          speakMsg = pushBot(chat, { text: t('coach_err', { e: e.message }) + '\n\n' + a.text, sources: a.sources, why: a.why, topic: a.topic });
-        }
+        speakMsg = await askAI(q, chat);
         S.coachBusy = false;
       } else {
         const a = B.answer(q, pr);
@@ -447,6 +457,26 @@
     saveChat(chat);
     if (S.route === 'coach') rerender();
     if (speakMsg && settings().voiceReplies) speak(speakMsg.text);
+  }
+  async function askAI(q, chat, late) {
+    const pr = profile(), B = window.NolaBrain, unit = settings().unit;
+    try {
+      const T = E.targets(pr), hist = chat.filter(m => m.text).slice(settings().lowData ? -4 : -10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
+      if (late) hist.push({ role: 'user', content: q });
+      let txt = (await AI.chat([{ role: 'system', content: AI.coachSystem(pr, T, L()) + '\n' + B.context(pr, unit) }, ...hist])).trim();
+      let why = []; const mm = txt.match(/\n\s*\**(Why|ለምን)\**\s*[:：]\s*([\s\S]+)$/i); if (mm) { why = [mm[2].trim()]; txt = txt.slice(0, mm.index).trim(); }
+      return pushBot(chat, { text: (late ? t('q_late_prefix', { q: q.slice(0, 80) }) + '\n' : '') + txt, why, sources: ['AI · ' + AI.cfg().model], topic: window.NolaCoach.detect(q) });
+    } catch (e) {
+      const a = B.answer(q, pr);
+      return pushBot(chat, { text: t('coach_err', { e: e.message }) + '\n\n' + a.text, sources: a.sources, why: a.why, topic: a.topic, retry: q });
+    }
+  }
+  async function runQueued(items) {
+    const chat = chatList().slice();
+    chat.forEach(m => { if (m.queued && m.queued !== 'sent' && items.some(it => it.id === m.queued)) m.queued = 'sent'; });
+    S.coachBusy = true; if (S.route === 'coach') rerender();
+    for (const it of items) await askAI(it.q, chat, true);
+    S.coachBusy = false; saveChat(chat); if (S.route === 'coach') rerender();
   }
   function speak(text) { if (!window.NolaVoice.speak(text, L())) toast(t('voice_no_tts')); }
   function cardAction(id, save) {
@@ -479,13 +509,14 @@
         <button class="list-btn" data-action="go" data-to="readings"><span>📈 ${t('me_readings')}</span><span>›</span></button>
         <button class="list-btn" data-action="go" data-to="learn"><span>🛡️ ${t('me_learn')}</span><span>›</span></button>
         <button class="list-btn" data-action="go" data-to="settings" id="openSettings"><span>⚙️ ${t('me_settings')}</span><span>›</span></button></div>
-      <div class="card tight"><div class="row between"><span>🌐 ${t('set_language')}</span><div class="seg" style="width:180px"><button class="${L() === 'en' ? 'on' : ''}" data-action="set-lang" data-v="en">English</button><button class="${L() === 'am' ? 'on' : ''}" data-action="set-lang" data-v="am">አማርኛ</button></div></div></div>
+      <div class="card tight"><div><span>🌐 ${t('set_language')}</span></div>${window.NolaV3.langPicker(false)}</div>
       <p class="tiny muted">${t('disclaimer')}</p>`;
   }
   function rSettings() {
     const s = settings();
     return `<h1>${t('me_settings')}</h1>
-      <div class="card"><div class="row between"><b>${t('set_language')}</b><div class="seg" style="width:180px"><button class="${L() === 'en' ? 'on' : ''}" data-action="set-lang" data-v="en">English</button><button class="${L() === 'am' ? 'on' : ''}" data-action="set-lang" data-v="am">አማርኛ</button></div></div>
+      <div class="card"><b>${t('set_language')}</b>${window.NolaV3.langPicker(false)}
+        <div class="row between" style="margin-top:14px"><div><b>${t('set_simple')}</b><div class="tiny muted">${t('set_simple_d')}</div></div><label class="row"><input type="checkbox" id="simpleMode" data-action-change="simple" ${s.simple ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
         <div class="row between" style="margin-top:14px"><div><b>${t('set_lowdata')}</b><div class="tiny muted">${t('set_lowdata_d')}</div></div><label class="row"><input type="checkbox" id="lowData" data-action-change="lowdata" ${s.lowData ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
         <div class="row between" style="margin-top:14px"><b>${t('set_textsize')}</b><div class="seg" style="width:200px" id="tsSeg">${['s', 'm', 'l', 'xl'].map(x => `<button class="${(DB.ui().textSize || 'm') === x ? 'on' : ''}" data-action="set-textsize" data-v="${x}" aria-label="${t('set_textsize')} ${x}">${{ s: 'A-', m: 'A', l: 'A+', xl: 'A++' }[x]}</button>`).join('')}</div></div>
         <div class="row between" style="margin-top:14px"><div><b>${t('voice_replies')}</b><div class="tiny muted">${window.NolaVoice.ttsSupported ? (window.NolaVoice.hasVoice(L()) ? t('voice_ok') : t('voice_no_tts')) : t('voice_no_tts')}</div></div><label class="row"><input type="checkbox" data-action-change="voice-replies" ${s.voiceReplies ? 'checked' : ''} style="width:22px;height:22px;accent-color:#166534"></label></div>
@@ -546,12 +577,22 @@
     },
     'quick-add'(el) { el.dataset.ids.split(',').forEach(addItem); rerender(); },
     'item-set'(el) { const it = S.draft.items[+el.dataset.i]; it[el.dataset.k] = el.dataset.k === 'mult' ? +el.dataset.v : el.dataset.v; if (el.dataset.k === 'mult') it.mu = null; rerender(); },
+    'item-variant'(el) { const it = S.draft.items[+el.dataset.i]; Object.assign(it, { foodId: el.dataset.v, mult: 1, mu: null, method: undefined, oilType: undefined, oil: 'normal', salt: 'normal', confirmed: false }); rerender(); toast('⇄ ' + fname(F.byId[el.dataset.v])); },
+    async 'scan-retry'() { const d = S.draft; if (!d || !S.lastBig) return; if (!navigator.onLine) return toast(t('scan_ai_offline')); d.err = null; d.status = 'loading'; rerender();
+      try { const items = await AI.recognize(S.lastBig); d.items = d.items.concat(items); d.status = 'done'; if (!items.length) d.err = t('scan_ai_error', { e: 'no food found' }); }
+      catch (e) { d.status = 'error'; d.err = t('scan_ai_error', { e: e.message }); } rerender(); },
+    'ai-retry'(el) {
+      if (!navigator.onLine) return toast(t('q_still_offline'));
+      const chat = chatList().slice(), m = chat.find(x => x.id === el.dataset.id); if (m) m.retry = null;
+      S.coachBusy = true; saveChat(chat); rerender();
+      askAI(el.dataset.q, chat).then(msg => { S.coachBusy = false; saveChat(chat); rerender(); if (msg && settings().voiceReplies) speak(msg.text); });
+    },
     'item-del'(el) { S.draft.items.splice(+el.dataset.i, 1); rerender(); },
     analyze() { const d = S.draft; if (!d.items.length) return; runAnalysis(d.items, d.meal, d.photo); },
     'edit-meal'() { location.hash = '#/scan'; },
     'save-meal'() {
       const r = S.result; if (r.savedId) return;
-      const m = { id: uid(), ts: Date.now(), meal: r.meal, items: r.items, totals: r.a.totals, verdict: r.a.verdict, photo: settings().lowData ? null : r.photo };
+      const m = { id: uid(), ts: Date.now(), meal: r.meal, items: r.items, totals: r.a.totals, verdict: r.a.verdict, score: r.sc ? r.sc.score : null, photo: settings().lowData ? null : r.photo };
       DB.set('meals', meals().concat([m])); r.savedId = m.id; S.draft = null; S.diaryDate = dayKey(m.ts);
       rerender(); toast(t('res_saved'));
     },
@@ -597,7 +638,7 @@
     async reset() { if (!confirm(t('set_reset_q'))) return; await DB.clear(); S.draft = S.result = S.ob = null; location.hash = '#/onboarding'; route(); },
   };
   function setLang(l) { I18N.set(l); DB.ui({ lang: l }); if (!DB.locked) saveSettings({ lang: l }); document.documentElement.lang = l; rerender(); }
-  function applyTextSize() { const ts = DB.ui().textSize || 'm'; document.documentElement.dataset.ts = ts; }
+  function applyTextSize() { const u = DB.ui(), ts = u.textSize || 'm'; document.documentElement.dataset.ts = ts; document.documentElement.dataset.simple = u.simple ? '1' : ''; }
 
   document.addEventListener('click', ev => {
     const el = ev.target.closest('[data-action]'); if (!el) return;
@@ -622,16 +663,17 @@
     if (el.id === 'camIn' || el.id === 'upIn') onPhoto(el.files[0]);
     if (el.dataset.actionChange === 'voice-replies') { saveSettings({ voiceReplies: el.checked }); toast(t('set_saved')); if (!el.checked) window.NolaVoice.stopSpeaking(); }
     if (el.dataset.actionChange === 'item-confirm') { S.draft.items[+el.dataset.i].confirmed = el.checked; rerender(); }
-    if (el.dataset.actionChange === 'lowdata') { saveSettings({ lowData: el.checked }); document.body.classList.toggle('lowdata', el.checked); toast(t('set_saved')); }
-    if (el.id === 'importIn' && el.files[0]) { const fr = new FileReader(); fr.onload = () => { try { const d = JSON.parse(fr.result); ['profile', 'meals', 'readings', 'chat', 'glogs', 'memory', 'feedback', 'plan', 'shopping', 'prices', 'academy', 'activities', 'checkups', 'badges', 'shares', 'supporting', 'restaurant'].forEach(k => { if (d[k]) DB.set(k, d[k]); }); if (d.settings) saveSettings(Object.assign({}, d.settings, { aiKey: settings().aiKey })); toast(t('set_imported')); location.hash = '#/home'; route(); } catch (e) { toast('Invalid file'); } }; fr.readAsText(el.files[0]); }
+    if (el.dataset.actionChange === 'lowdata') { saveSettings({ lowData: el.checked }); applySettings(); toast(t(el.checked ? 'v3_lowdata_on' : 'set_saved')); rerender(); }
+    if (el.dataset.actionChange === 'simple') { saveSettings({ simple: el.checked }); applySettings(); toast(t(el.checked ? 'v3_simple_on' : 'set_saved')); rerender(); }
+    if (el.id === 'importIn' && el.files[0]) { const fr = new FileReader(); fr.onload = () => { try { const d = JSON.parse(fr.result); ['profile', 'meals', 'readings', 'chat', 'glogs', 'memory', 'feedback', 'plan', 'shopping', 'prices', 'academy', 'activities', 'checkups', 'badges', 'shares', 'supporting', 'restaurant', 'challenges', 'reminders', 'daily', 'labs', 'aiQueue'].forEach(k => { if (d[k]) DB.set(k, d[k]); }); if (d.settings) saveSettings(Object.assign({}, d.settings, { aiKey: settings().aiKey })); toast(t('set_imported')); location.hash = '#/home'; route(); } catch (e) { toast('Invalid file'); } }; fr.readAsText(el.files[0]); }
   });
   document.addEventListener('submit', ev => { if (ev.target.id === 'chatForm') { ev.preventDefault(); const i = $('#chatIn'); const q = i.value; i.value = ''; ask(q); } });
   document.addEventListener('keydown', ev => { if (ev.key === 'Escape') { if (!$('#alert').hidden) $('#alert').hidden = true; else if (!$('#sheet').hidden) A['close-sheet'](); } });
   window.addEventListener('hashchange', route);
-  function net() { $('#netBadge').hidden = navigator.onLine; }
+  function net() { if (window.NolaV3) window.NolaV3.updNet(); else $('#netBadge').hidden = navigator.onLine; }
   window.addEventListener('online', net); window.addEventListener('offline', net);
 
-  function applySettings() { const st = settings(); I18N.set(DB.ui().lang || st.lang); document.documentElement.lang = I18N.lang; document.body.classList.toggle('lowdata', !!st.lowData); }
+  function applySettings() { const st = settings(); I18N.set(DB.ui().lang || st.lang); document.documentElement.lang = I18N.lang; document.body.classList.toggle('lowdata', !!st.lowData); document.documentElement.dataset.simple = st.simple ? '1' : ''; DB.ui({ simple: !!st.simple, lowData: !!st.lowData }); }
   function afterUnlock() { applySettings(); if (!location.hash || location.hash === '#/lock') location.hash = '#/home'; route(); }
   let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
@@ -650,6 +692,6 @@
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else setTimeout(boot, 0);
-  window.NolaApp = { S, ROUTES, A, VERSION, route, rerender, ask, toast, openSheet, closeSheet, showAlert, md, esc, uid, dayKey, profile, settings, saveSettings, meals, readings,
+  window.NolaApp = { S, ROUTES, A, VERSION, route, rerender, ask, toast, mealRow, readingBanners, fmtG, TIPS, runQueued, setLang, applySettings, openSheet, closeSheet, showAlert, md, esc, uid, dayKey, profile, settings, saveSettings, meals, readings,
     defaultMeal, condLabel, newDraft, openPicker, compressImage, runAnalysis, readingSheet, chatList, afterUnlock, applyTextSize, latest };
 })();

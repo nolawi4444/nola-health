@@ -179,7 +179,7 @@
     if (sev === 0 && !tips.size && dm) tips.add(t('tip_walk'));
     const verdict = ['good', 'adjust', 'alt'][sev];
     const ethiopian = foods.some(x => x.f && !['rice', 'rice_brown', 'pasta', 'pasta_sauce', 'bread_white', 'bread_whole', 'fries', 'burger', 'pizza', 'soda', 'water', 'chicken', 'milk', 'banana', 'apple', 'orange', 'mango', 'papaya', 'avocado', 'juice_orange'].includes(x.f.id));
-    return { verdict, totals: tot, targets: T, carbGuide, share, why, tips: [...tips], alts: [...alts].map(k => t(k)), ethiopian };
+    return { verdict, totals: tot, targets: T, carbGuide, share, allergy: [...hit], why, tips: [...tips], alts: [...alts].map(k => t(k)), ethiopian };
   }
 
   function frac(x) {

@@ -44,7 +44,7 @@
       ['record_glucose', /(record|log|add|enter|save|track|መዝግብ|አስገባ).{0,25}(sugar|glucose|ስኳር)/i],
       ['today', /what (should|can|do) i eat today|eat today|today'?s (meals?|plan|menu)|ዛሬ ምን (ልብላ|እበላ|ልመገብ)/i],
       ['dinner', /(healthy )?dinner idea|idea for dinner|what (should|can) i (have|eat|cook) for dinner|for dinner|ለእራት|የእራት/i],
-      ['report', /explain (my )?(latest |last )?(report|results?|readings?|summary|numbers)|my (latest )?report|health summary|ሪፖርቴን|ሪፖርት|ማጠቃለያ|ውጤቴን/i],
+      ['report', /explain (my )?(latest |last |medical |lab |test |blood )?(report|results?|readings?|summary|numbers)|my (latest |medical |lab )?report|medical report|lab results?|health summary|ሪፖርቴን|ሪፖርት|ማጠቃለያ|ውጤቴን/i],
       ['restaurant', /restaurant|menu|eating out|ምግብ ቤት|ሬስቶራንት|ሜኑ/i],
       ['budget', /budget|cheap|afford|birr|\betb\b|በጀት|ርካሽ|ብር/i],
     ];
@@ -145,9 +145,9 @@
     lines.push(t('nai_rep_meals', { n: s.meals, good: s.good, na: s.naAvg != null ? s.naAvg : '—', t: s.naT }));
     const gi = INS().glucoseInsights(); if (gi.n) lines.push(t('nai_rep_glog', { n: gi.n, rise: gi.avgRise }));
     if (!bp && !g && !s.meals) lines.push(t('nai_rep_empty'));
-    lines.push(t('nai_rep_next'));
+    lines.push(t('nai_rep_next'), t('nai_rep_labs_hint'));
     why.push(t('nai_why_report'));
-    return { text: lines.join('\n'), why, sources: ['AHA', 'ADA'], links: [['report', t('rep_title')], ['journey', t('hub_journey')]] };
+    return { text: lines.join('\n'), why, sources: ['AHA', 'ADA'], links: [['labs', t('lab_title')], ['report', t('rep_title')], ['journey', t('hub_journey')]] };
   }
   /* ---------- rule-based answer with why ---------- */
   function answer(q, pr) {

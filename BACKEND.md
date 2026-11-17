@@ -127,3 +127,27 @@ Claiming a share: an RPC function, `claim_share(share_id, code)`, set to `securi
 - No AI key or health data in server logs.
 - Delete everything when the user deletes their account (`on delete cascade`).
 - Back up your Supabase project; enable 2FA on the Supabase dashboard account.
+
+
+## 7. Market price feed (placeholder, not active)
+
+`js/planner.js` exposes `NolaPlanner.priceFeed`:
+
+```js
+NolaPlanner.priceFeed.register({
+  name: 'My trusted source',
+  async fetchPrices() { /* return { teff: 210, misir: 180, ... } in ETB per default unit */ }
+});
+await NolaPlanner.priceFeed.refresh(); // merges into the editable price table
+```
+
+Until an adapter is registered, `refresh()` throws "No price feed configured (requires a data source)" and the
+Prices screen shows "Not connected". No prices are invented. A real feed needs a trusted data source (e.g. an
+official market-price bulletin or a partner API) and a small server to fetch and cache it.
+
+## 8. Push reminders (requires server)
+
+Reminders currently use the Notification API from the open app / service worker plus in-app sheets.
+Reliable alerts when the app is fully closed need Web Push: a VAPID key pair, a push subscription stored per
+device (`push_subscriptions` table with RLS by `owner_id`), and a scheduled function that sends due reminders.
+Reminder text must not include medical details unless the user opted in.

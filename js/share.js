@@ -4,7 +4,7 @@
    The ShareAdapter interface below lets a real backend (see BACKEND.md) replace LocalPackageAdapter later. */
 (function () {
   const DB = () => window.NolaDB, E = () => window.NolaEngine;
-  const CATS = ['profile', 'conditions', 'meds', 'bp', 'glucose', 'weight', 'meals', 'glogs', 'plan', 'checkups', 'journey'];
+  const CATS = ['profile', 'conditions', 'meds', 'bp', 'glucose', 'weight', 'meals', 'glogs', 'plan', 'checkups', 'reminders', 'journey'];
   const DAY = 864e5;
   function collect(cats, days = 90) {
     const pr = DB().get('profile', {}), since = Date.now() - days * DAY, out = {};
@@ -17,6 +17,7 @@
     if (cats.includes('glogs')) out.glogs = DB().get('glogs', []).filter(l => l.ts >= since).map(l => { const c = Object.assign({}, l); if (!cats.includes('meds')) delete c.med; return c; });
     if (cats.includes('plan') && DB().get('plan')) { const p = DB().get('plan'); out.plan = { created: p.created, days: p.days.map(d => ({ date: d.date, fastingDay: d.fastingDay, meals: Object.fromEntries(Object.entries(d.meals).map(([k, m]) => [k, m.dish])) })) }; }
     if (cats.includes('checkups')) out.checkups = DB().get('checkups', []);
+    if (cats.includes('reminders')) out.reminders = DB().get('reminders', []).filter(r => !r.forWho && r.on !== false).map(r => ({ kind: r.kind, title: r.title || '', time: r.time, days: r.days || [], date: r.date || null }));
     if (cats.includes('journey')) out.journey = { week: window.NolaInsights.periodSummary(7), month: window.NolaInsights.periodSummary(30), since: pr.created };
     return out;
   }

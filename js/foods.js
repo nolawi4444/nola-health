@@ -327,6 +327,31 @@
     F('areki', 'Areki (strong spirit)', 'አረቄ', 'drink',
       { kcal: 100, p: 0, c: 0, s: 0, as: 0, f: 0, sf: 0, fb: 0, na: 0, k: 0 },
       { portions: P.cupSmall, base: { en: '1 shot ≈40 ml', am: '1 መለኪያ ≈40 ሚሊ' }, gi: 'low', tags: ['alcohol', 'fasting', 'vegan'], src: USDA + ' distilled spirit 40%', note: { en: 'Strong alcohol: can cause delayed low blood sugar with insulin/sulfonylureas and raises blood pressure.', am: 'ጠንካራ አልኮል ነው።' } }),
+    // ---- v3: regional & traditional dishes (recipe estimates — regional recipes vary a lot)
+    F('bula', 'Bula genfo (enset porridge)', 'የቡላ ገንፎ', 'breakfast',
+      { kcal: 330, p: 2, c: 58, s: 2, as: 0, f: 9, sf: 5.5, fb: 3, na: 150, k: 150 },
+      { portions: P.plate, base: { en: '1 bowl ≈250 g (with butter)', am: '1 ሳህን ≈250 ግ (ከቅቤ ጋር)' }, gi: 'high', tags: ['glutenfree'], allergens: ['dairy'], oil: 8, oilType: 'kibbeh', salt: true,
+        src: RECIPE + ' (enset/bula starch, niter kibbeh)', note: { en: 'Bula is almost pure starch — low in protein and fiber. Keep the bowl small and add ayib, egg or legumes.', am: 'ቡላ በአብዛኛው ስታርች ነው — ትንሽ ይመገቡ፣ ከአይብ ወይም እንቁላል ጋር ያጣምሩ።' } }),
+    F('marqa', 'Marqa (Oromo barley porridge)', 'መርቃ', 'breakfast',
+      { kcal: 400, p: 9, c: 60, s: 1, as: 0, f: 14, sf: 8, fb: 7, na: 250, k: 220 },
+      { portions: P.plate, base: { en: '1 bowl ≈250 g (with butter)', am: '1 ሳህን ≈250 ግ' }, gi: 'medium', tags: ['wholegrain'], allergens: ['gluten', 'dairy'], oil: 12, oilType: 'kibbeh', salt: true,
+        src: RECIPE + ' (barley flour, niter kibbeh)', note: { en: 'Whole-grain barley gives fiber; most of the fat comes from the butter on top — ask for less.', am: 'ገብስ ፋይበር አለው፤ ስቡ በአብዛኛው ከላዩ ቅቤ ነው — ይቀንሱ።' } }),
+    F('chukko', 'Chukko (Sidama roasted barley with spiced butter)', 'ጩኮ', 'snack',
+      { kcal: 450, p: 9, c: 55, s: 1, as: 0, f: 22, sf: 13, fb: 7, na: 80, k: 250 },
+      { portions: P.serving, base: { en: '1 handful-ball serving ≈100 g', am: '1 ምግብ ≈100 ግ' }, gi: 'medium', tags: ['wholegrain'], allergens: ['gluten', 'dairy'], oil: 20, oilType: 'kibbeh',
+        src: RECIPE + ' (roasted barley flour, niter kibbeh)', note: { en: 'Energy-dense: small pieces go a long way. Rich in saturated fat from butter.', am: 'ብዙ ካሎሪ አለው፤ ትንሽ ይበቃል። ከቅቤ ብዙ ሳቹሬትድ ስብ አለው።' } }),
+    F('gaat', "Ga'at (Tigray porridge with butter, berbere & yogurt)", 'ገዓት', 'breakfast',
+      { kcal: 480, p: 12, c: 66, s: 4, as: 0, f: 18, sf: 10, fb: 6, na: 300, k: 350 },
+      { portions: P.plate, base: { en: '1 bowl ≈300 g incl. yogurt', am: '1 ሳህን ≈300 ግ ከእርጎ ጋር' }, gi: 'medium', tags: ['wholegrain'], allergens: ['gluten', 'dairy'], oil: 15, oilType: 'kibbeh', salt: true,
+        src: RECIPE + ' (barley/wheat flour, niter kibbeh, ergo)' }),
+    F('hilbet', 'Hilbet (lentil/fava & fenugreek paste)', 'ሕልበት', 'stew',
+      { kcal: 260, p: 13, c: 34, s: 3, as: 0, f: 8, sf: 1, fb: 10, na: 450, k: 500 },
+      { portions: P.cup, base: { en: '1 cup ≈200 g', am: '1 ኩባያ ≈200 ግ' }, gi: 'low', tags: ['fasting', 'vegan', 'legume'], oil: 7, salt: true,
+        src: RECIPE + ' (lentil/fava flour, fenugreek, oil)', note: { en: 'Legume + fenugreek: good fiber and protein, slow glucose rise.', am: 'ጥራጥሬና አብሽ፡ ጥሩ ፋይበርና ፕሮቲን።' } }),
+    F('tihlo', 'Tihlo (Tigray barley balls with stew)', 'ጥሕሎ', 'staple',
+      { kcal: 520, p: 22, c: 70, s: 3, as: 0, f: 16, sf: 5, fb: 9, na: 650, k: 450 },
+      { portions: P.plate, base: { en: '1 plate ≈250 g with dipping stew', am: '1 ሳህን ≈250 ግ ከወጥ ጋር' }, gi: 'medium', tags: ['wholegrain', 'meat'], allergens: ['gluten', 'dairy'], oil: 10, oilType: 'kibbeh', salt: true,
+        src: RECIPE + ' (roasted barley dough, meat/legume stew)' }),
   ];
 
   const byId = {};
@@ -334,9 +359,9 @@
   // Aliases help match AI output and free-text search (Latin + Ge'ez spellings)
   const ALIASES = {
     injera_teff: ['injera', 'enjera', 'teff', 'tef', 'እንጀራ', 'ጤፍ'], injera_white: ['white injera', 'wheat injera', 'rice injera'],
-    shiro: ['shiro', 'shuro', 'chickpea stew', 'ሽሮ'], misir: ['misir', 'misr', 'red lentil', 'lentil stew', 'ምስር'], kik: ['kik', 'split pea', 'yellow pea', 'ክክ'],
+    shiro: ['shiro', 'shuro', 'chickpea stew', 'ሽሮ'], misir: ['misir', 'misr', 'red lentil', 'lentil stew', 'ምስር'], kik: ['kik', 'kik alicha', 'split pea', 'yellow pea', 'ክክ'],
     gomen: ['gomen', 'collard', 'kale', 'greens', 'ጎመን'], atkilt: ['atkilt', 'atakilt', 'mixed vegetable', 'አትክልት'], tikil_gomen: ['tikil', 'cabbage', 'ጥቅል'],
-    doro: ['doro', 'chicken stew', 'ዶሮ'], key_wot: ['key wot', 'sega wot', 'beef stew', 'ቀይ'], tibs: ['tibs', 'tebs', 'sauteed meat', 'ጥብስ'],
+    doro: ['doro', 'chicken stew', 'ዶሮ'], key_wot: ['key wot', 'sega wot', 'siga wot', 'beef stew', 'ቀይ', 'ሥጋ ወጥ', 'ስጋ ወጥ'], tibs: ['tibs', 'tebs', 'sauteed meat', 'ጥብስ'],
     kitfo: ['kitfo', 'ketfo', 'steak tartare', 'ክትፎ'], gored: ['gored', 'raw beef', 'ጎረድ'], firfir: ['firfir', 'fitfit', 'ፍርፍር'], chechebsa: ['chechebsa', 'kita firfir', 'ጨጨብሳ'],
     genfo: ['genfo', 'porridge', 'ገንፎ'], ful: ['ful', 'foul', 'fava', 'ፉል'], dulet: ['dulet', 'tripe', 'ዱለት'], beyaynetu: ['beyaynetu', 'fasting platter', 'combo', 'በያይነቱ'],
     ayib: ['ayib', 'cottage cheese', 'አይብ'], kolo: ['kolo', 'roasted barley', 'ቆሎ'], dabo: ['dabo', 'ዳቦ'], kita: ['kita', 'flatbread', 'ቂጣ'], tej: ['tej', 'honey wine', 'mead', 'ጠጅ'],
@@ -356,7 +381,7 @@
     minchet: ['minchet', 'minced meat', 'ምንቸት'], awaze_tibs: ['awaze tibs', 'awaze beef', 'አዋዜ ጥብስ'], zilzil_tibs: ['zilzil', 'ዝልዝል'], yebeg_tibs: ['lamb tibs', 'yebeg', 'በግ'],
     mahberawi: ['mahberawi', 'combo platter', 'ማህበራዊ'], quanta_firfir: ['quanta', 'kwanta', 'dried meat', 'ቋንጣ'], tsom_firfir: ['fasting firfir', 'የጾም ፍርፍር'],
     kategna: ['kategna', 'ቃተኛ'], fatira: ['fatira', 'ፈጢራ'], atmit: ['atmit', 'ጥሚት'], dabo_kolo: ['dabo kolo', 'ዳቦ ቆሎ'], shimbra_kolo: ['roasted chickpea', 'shimbra'],
-    ambasha: ['ambasha', 'አምባሻ'], besso: ['besso', 'በሶ'], areki: ['areki', 'arak', 'spirit', 'አረቄ'],
+    ambasha: ['ambasha', 'አምባሻ'], bula: ['bula', 'ቡላ'], marqa: ['marqa', 'marka', 'መርቃ'], chukko: ['chukko', 'chuko', 'ጩኮ'], gaat: ["ga'at", 'gaat', 'ገዓት'], hilbet: ['hilbet', 'hilbeth', 'ሕልበት', 'ህልበት'], tihlo: ['tihlo', 'tehlo', 'ጥሕሎ', 'ጥህሎ'], besso: ['besso', 'በሶ'], areki: ['areki', 'arak', 'spirit', 'አረቄ'],
   });
 
   /* Ethiopian household measures. frac = how many base portions ONE measure is (approximate). */
@@ -404,5 +429,18 @@
     }
     return best;
   }
-  window.NolaFoods = { FOODS, byId, search, match, measures, METHODS, methodGroup, CATS: ['staple', 'stew', 'veg', 'meat', 'breakfast', 'dairy', 'snack', 'fruit', 'drink'] };
+  /* Recipe families: the same dish name can mean quite different nutrition at home vs. a restaurant or in another region. */
+  const VARIANTS = {
+    injera: ['injera_teff', 'injera_mixed', 'injera_white'], shiro: ['shiro', 'shiro_tegabino', 'bozena_shiro'], misir: ['misir', 'misir_alicha'],
+    tibs: ['tibs', 'zilzil_tibs', 'awaze_tibs', 'yebeg_tibs'], firfir: ['firfir', 'tsom_firfir', 'quanta_firfir', 'enkulal_firfir'], gomen: ['gomen', 'gomen_besiga', 'ayib_gomen'],
+    porridge: ['genfo', 'marqa', 'gaat', 'bula', 'kinche'], meatwot: ['key_wot', 'minchet', 'doro', 'dulet'], kitfo: ['kitfo', 'gored'], bread: ['kita', 'dabo', 'ambasha', 'fatira', 'kocho'],
+    platter: ['beyaynetu', 'mahberawi'], legume: ['kik', 'hilbet', 'buticha', 'shimbra_asa'],
+  };
+  function variantsOf(id) {
+    const g = Object.keys(VARIANTS).find(k => VARIANTS[k].includes(id)); if (!g) return null;
+    const list = VARIANTS[g].filter(x => byId[x]);
+    const kc = list.map(x => byId[x].n.kcal);
+    return { group: g, ids: list.filter(x => x !== id), min: Math.min(...kc), max: Math.max(...kc) };
+  }
+  window.NolaFoods = { FOODS, byId, search, match, measures, METHODS, methodGroup, VARIANTS, variantsOf, CATS: ['staple', 'stew', 'veg', 'meat', 'breakfast', 'dairy', 'snack', 'fruit', 'drink'] };
 })();

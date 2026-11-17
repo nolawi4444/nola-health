@@ -27,7 +27,14 @@
     ['family', '👨‍👩‍👧', 'hub_family', 'hub_family_d'], ['clinician', '🩺', 'hub_clinician', 'hub_clinician_d'], ['academy', '🎓', 'hub_academy', 'hub_academy_d'],
     ['journey', '🌱', 'hub_journey', 'hub_journey_d'], ['memory', '🗂️', 'hub_remember', 'hub_remember_d'], ['privacy', '🔒', 'hub_privacy', 'hub_privacy_d'],
   ];
-  function hubGrid() { return `<h2>${t('hub_title')}</h2><div class="hub">${HUB.map(([r, i, k, d]) => `<a class="tile" href="#/${r}" data-hub="${r}"><span class="ti">${i}</span><b>${t(k)}</b><span class="tiny muted">${t(d)}</span></a>`).join('')}</div>`; }
+  HUB.push(['health', '❤️', 'h3_health', 'h3_health_d'], ['eat', '🍲', 'h3_eat', 'h3_eat_d'], ['today', '📋', 'h3_plan', 'h3_plan_d'], ['challenges', '🎯', 'ch_title', 'ch_hub_d'],
+    ['reminders', '⏰', 'rem_title', 'rem_hub_d'], ['labs', '🧪', 'lab_title', 'lab_hub_d'], ['diary', '📖', 'h3_food_history', 'h3_food_history_d'], ['settings', '⚙️', 'me_settings', 'set_hub_d']);
+  const HUB_GROUPS = [['hg_daily', ['today', 'eat', 'challenges', 'reminders']], ['hg_health', ['health', 'glucose', 'labs', 'clinician', 'journey', 'diary']],
+    ['hg_food', ['coach', 'insights', 'restaurant', 'planner', 'shopping', 'academy']], ['hg_people', ['family', 'memory', 'privacy', 'settings']]];
+  function hubGrid() {
+    const by = Object.fromEntries(HUB.map(h => [h[0], h]));
+    return HUB_GROUPS.map(([g, ids]) => `<h2>${t(g)}</h2><div class="hub">${ids.map(r => by[r]).filter(Boolean).map(([r, i, k, d]) => `<a class="tile" href="#/${r}" data-hub="${r}"><span class="ti">${i}</span><b>${t(k)}</b><span class="tiny muted">${t(d)}</span></a>`).join('')}</div>`).join('');
+  }
 
   /* ---------- FOOD MEMORY / INSIGHTS ---------- */
   ROUTES.insights = function () {
@@ -216,8 +223,11 @@
   A['close-sheet'] = () => { const was = S.restPick; S.restPick = false; _close(); if (was) N.rerender(); };
 
   /* ---------- BUDGET PLANNER ---------- */
-  const COMMON = ['teff', 'shiro', 'lentils', 'onion', 'veg_oil', 'berbere', 'potato', 'eggs', 'salt', 'tomato', 'cabbage', 'rice'];
+  const COMMON = ['teff', 'wheat_flour', 'barley_flour', 'shiro', 'lentils', 'split_peas', 'fava', 'chickpeas', 'eggs', 'ayib', 'milk', 'onion', 'tomato', 'potato', 'cabbage', 'collards', 'carrot', 'pumpkin', 'banana', 'veg_oil', 'berbere', 'salt', 'rice', 'pasta'];
+  const PREFER = ['shiro', 'misir', 'kik', 'gomen', 'ful', 'firfir', 'tibs', 'doro', 'asa', 'egg', 'ayib', 'genfo', 'beyaynetu', 'atkilt'];
+  const PL_RS = ['vegetarian', 'vegan', 'glutenfree', 'lowsalt'];
   S.plan = S.plan || { avail: [] };
+  const SWAP_KEYS = ['sw_beef', 'sw_kibbeh', 'sw_oats', 'sw_olive', 'sw_rice', 'sw_juice', 'sw_bread', 'sw_salmon'];
   ROUTES.planner = function () {
     const plan = DB.get('plan'), last = plan || {}, pr = N.profile();
     const form = `<div class="card"><h3>${t('pl_budget')}</h3><div class="grid2"><div><label class="f" for="plAmount">${t('pl_amount')} (ETB)</label><input class="in" id="plAmount" type="number" inputmode="numeric" min="1" value="${last.amount || 250}"></div>
@@ -225,6 +235,8 @@
         <label class="f" for="plPeople">${t('pl_people')}</label><input class="in" id="plPeople" type="number" min="1" max="12" inputmode="numeric" value="${last.people || 1}">
         <label class="check"><input type="checkbox" id="plFast" ${last.fastingSeason ? 'checked' : ''}><span class="small">${t('pl_fasting_season')}</span></label>
         ${(pr.restrictions || []).includes('fasting') ? `<p class="tiny muted">${t('pl_fast_wf')}</p>` : ''}
+        <label class="f">${t('pl_prefer')}</label><div class="chips" id="plPrefer">${PREFER.map(k => { const f = F.byId[k] || F.match(k); return `<button type="button" class="chip sm ${((S.plan.prefer || last.prefer || [])).includes(k) ? 'on' : ''}" data-action="pl-prefer" data-v="${k}">${esc(f ? fname(f).split(' (')[0] : k)}</button>`; }).join('')}</div>
+        <label class="f">${t('pl_rs')}</label><div class="chips" id="plRs">${PL_RS.map(k => `<button type="button" class="chip sm ${((S.plan.rs || last.restrictions || [])).includes(k) || (pr.restrictions || []).includes(k) ? 'on' : ''}" data-action="pl-rs" data-v="${k}" ${(pr.restrictions || []).includes(k) ? 'disabled title="profile"' : ''}>${t('r_' + k)}</button>`).join('')}</div>
         <label class="f">${t('pl_have')}</label><div class="chips" id="plHave">${COMMON.map(k => `<button type="button" class="chip sm ${(S.plan.avail.length ? S.plan.avail : last.available || []).includes(k) ? 'on' : ''}" data-action="pl-have" data-v="${k}">${esc(PL.ING[k][L() === 'am' ? 1 : 0])}</button>`).join('')}</div>
         <button class="btn block" style="margin-top:14px" data-action="pl-generate" id="plGen">${plan ? t('pl_regen') : t('pl_generate')}</button>
         <p class="tiny muted">💲 ${t('pl_price_label')} <a href="#/prices">${t('pl_edit_prices')}</a></p></div>`;
@@ -238,20 +250,25 @@
         ${plan.overBudget ? `<div class="banner amber small">${t('pl_over')}</div>` : `<div class="banner green small">✓ ${t('pl_within')}</div>`}
         <div class="row" style="gap:8px;margin-top:8px"><a class="btn sm grow" href="#/shopping" id="toShopping">🛒 ${t('hub_shopping')}</a><a class="btn sm ghost" href="#/prices">${t('pl_edit_prices')}</a></div></div>
       <details class="card tight"><summary class="small"><b>${t('pl_why')}</b></summary><ul class="clean small">${why.map(w => `<li>${esc(w)}</li>`).join('')}</ul></details>
-      ${days}<p class="tiny muted">${t('pl_fb_note')}</p><h2>${t('pl_change')}</h2>${form}`;
+      ${days}<p class="tiny muted">${t('pl_fb_note')}</p>
+      <div class="card" id="localAlts"><h3>🇪🇹 ${t('pl_local_alts')}</h3><ul class="clean small">${SWAP_KEYS.map(k => `<li>${esc(t(k))}</li>`).join('')}</ul></div>
+      <h2>${t('pl_change')}</h2>${form}`;
   };
   A['pl-have'] = el => { const cur = S.plan.avail.length ? S.plan.avail : ((DB.get('plan') || {}).available || []).slice(); const v = el.dataset.v; S.plan.avail = cur.includes(v) ? cur.filter(x => x !== v) : cur.concat([v]); if (!S.plan.avail.length) S.plan.avail = []; el.classList.toggle('on'); };
+  A['pl-prefer'] = el => { el.classList.toggle('on'); S.plan.prefer = Array.from(document.querySelectorAll('#plPrefer .chip.on')).map(c => c.dataset.v); };
+  A['pl-rs'] = el => { el.classList.toggle('on'); S.plan.rs = Array.from(document.querySelectorAll('#plRs .chip.on:not([disabled])')).map(c => c.dataset.v); };
   A['pl-generate'] = () => {
     const amount = +$('#plAmount').value, people = +$('#plPeople').value || 1;
     if (!(amount > 0)) return toast(t('rd_invalid'));
     const period = ($('#plPeriod .on') || { dataset: { v: 'day' } }).dataset.v;
     const available = Array.from(document.querySelectorAll('#plHave .chip.on')).map(c => c.dataset.v);
-    const plan = PL.generate({ amount, period, people, fastingSeason: $('#plFast').checked, available });
+    const prefer = Array.from(document.querySelectorAll('#plPrefer .chip.on')).map(c => c.dataset.v), restrictions = Array.from(document.querySelectorAll('#plRs .chip.on:not([disabled])')).map(c => c.dataset.v);
+    const plan = PL.generate({ amount, period, people, fastingSeason: $('#plFast').checked, available, prefer, restrictions }); S.plan.prefer = null; S.plan.rs = null;
     PL.shoppingFromPlan(plan); S.plan.avail = []; toast(t('pl_done')); N.route();
   };
   ROUTES.prices = function () {
     const P = PL.prices(), over = DB.get('prices', {});
-    return hdr(t('pl_prices'), 'planner') + `<div class="note">💲 ${t('pl_price_label')}</div>` + PL.CATS.map(c => `<h2>${t('shop_' + c)}</h2><div class="card tight">${Object.entries(PL.ING).filter(([, v]) => v[2] === c).map(([k, v]) => `<div class="stat"><span>${esc(v[L() === 'am' ? 1 : 0])}${over[k] != null ? ' <span class="pill info tiny">' + t('pl_edited') + '</span>' : ''}<br><span class="tiny muted">${t('pl_default')}: ${v[4]} ETB/${v[3]}</span></span><span class="row" style="gap:4px"><input class="in price" type="number" min="0" step="1" inputmode="decimal" data-price="${k}" value="${P[k]}"><span class="tiny">/${v[3]}</span></span></div>`).join('')}</div>`).join('') +
+    return hdr(t('pl_prices'), 'planner') + `<div class="note">💲 ${t('pl_price_label')}</div><div class="card tight" id="priceFeed"><b>📡 ${t('pf_title')}</b> <span class="pill info tiny">${PL.priceFeed.status() === 'ready' ? t('pf_ready') : t('pf_none')}</span><p class="tiny muted" style="margin:4px 0 0">${t('pf_d')}</p></div>` + PL.CATS.map(c => `<h2>${t('shop_' + c)}</h2><div class="card tight">${Object.entries(PL.ING).filter(([, v]) => v[2] === c).map(([k, v]) => `<div class="stat"><span>${esc(v[L() === 'am' ? 1 : 0])}${over[k] != null ? ' <span class="pill info tiny">' + t('pl_edited') + '</span>' : ''}<br><span class="tiny muted">${t('pl_default')}: ${v[4]} ETB/${v[3]}</span></span><span class="row" style="gap:4px"><input class="in price" type="number" min="0" step="1" inputmode="decimal" data-price="${k}" value="${P[k]}"><span class="tiny">/${v[3]}</span></span></div>`).join('')}</div>`).join('') +
       `<div class="row" style="gap:8px;margin-top:10px"><button class="btn grow" data-action="price-save" id="priceSave">${t('save')}</button><button class="btn ghost" data-action="price-reset">${t('pl_reset')}</button></div>`;
   };
   A['price-save'] = () => { const o = {}; document.querySelectorAll('[data-price]').forEach(i => { const k = i.dataset.price, v = +i.value; if (v >= 0 && v !== PL.ING[k][4]) o[k] = v; }); DB.set('prices', o); const sl = DB.get('shopping'); if (sl) { const P = PL.prices(); sl.items.forEach(it => { if (it.ing && P[it.ing] != null) it.price = P[it.ing]; }); DB.set('shopping', sl); } toast(t('set_saved')); N.rerender(); };
@@ -263,11 +280,30 @@
     if (!sl || !sl.items.length) return hdr(t('hub_shopping')) + `<div class="card center"><div style="font-size:40px">🛒</div><p class="small">${t('shop_empty')}</p><a class="btn" href="#/planner">${t('hub_planner')}</a></div>` + addForm();
     const nm = it => it.ing ? PL.ING[it.ing][L() === 'am' ? 1 : 0] : it.name;
     const left = sl.items.filter(i => !i.checked).reduce((s, i) => s + PL.itemCost(i), 0), all = sl.items.reduce((s, i) => s + PL.itemCost(i), 0);
-    return hdr(t('hub_shopping')) + `<div class="card tight"><div class="row between"><span class="small">${t('shop_left')}: <b>~${R(left)} ETB</b></span><span class="tiny muted">${t('shop_total')}: ~${R(all)} ETB</span></div><div class="row" style="gap:8px;margin-top:8px"><button class="btn sm soft" data-action="shop-copy">📋 ${t('shop_copy')}</button><button class="btn sm ghost" data-action="shop-regen">↺ ${t('shop_regen')}</button></div></div>` +
-      PL.CATS.map(c => { const its = sl.items.filter(i => i.cat === c); if (!its.length) return ''; return `<h2>${t('shop_' + c)}</h2><div class="card tight">${its.map(it => `<div class="shop-row ${it.checked ? 'done' : ''}"><label class="check"><input type="checkbox" data-action-change="shop-check" data-id="${it.id}" ${it.checked ? 'checked' : ''}><span>${esc(nm(it))}</span></label><span class="row" style="gap:4px"><input class="in qty" type="number" min="0" step="0.05" inputmode="decimal" data-action-change="shop-qty" data-id="${it.id}" value="${it.qty}"><span class="tiny">${esc(it.unit)}</span><span class="tiny muted" style="width:52px;text-align:right">~${R(PL.itemCost(it))}</span><button class="iconbtn sm" data-action="shop-del" data-id="${it.id}" aria-label="${t('del')}">✕</button></span></div>`).join('')}</div>`; }).join('') +
-      addForm() + `<p class="tiny muted">💲 ${t('pl_price_label')}</p>`;
+    const swaps = shopSwaps(sl);
+    return hdr(t('hub_shopping')) + `<div class="hero-photo sm">${N.settings().lowData ? '' : `<img class="photo" src="img/market.webp" alt="${esc(t('img_market'))}" loading="lazy" decoding="async" width="640" height="360">`}<div class="hp-text"><b>🛒 ${t('mk_title')}</b><span class="small">${t('mk_d')}</span></div></div>
+      <div class="card tight" id="shopTotals"><div class="row between"><span class="small">${t('shop_left')}: <b id="shopLeft">~${R(left)} ETB</b></span><span class="tiny muted">${t('shop_total')}: <b id="shopAll">~${R(all)} ETB</b></span></div><div class="row" style="gap:8px;margin-top:8px"><button class="btn sm soft" data-action="shop-copy">📋 ${t('shop_copy')}</button><button class="btn sm ghost" data-action="shop-regen">↺ ${t('shop_regen')}</button></div></div>` +
+      PL.CATS.map(c => { const its = sl.items.filter(i => i.cat === c); if (!its.length) return ''; return `<h2>${t('shop_' + c)}</h2><div class="card tight">${its.map(it => `<div class="shop-row v3 ${it.checked ? 'done' : ''}" data-shop="${it.id}"><div class="row between"><label class="check"><input type="checkbox" data-action-change="shop-check" data-id="${it.id}" ${it.checked ? 'checked' : ''}><span>${esc(nm(it))}</span></label><span class="row" style="gap:6px"><b class="small">~${R(PL.itemCost(it))} ETB</b><button class="iconbtn sm" data-action="shop-del" data-id="${it.id}" aria-label="${t('del')}">✕</button></span></div>
+        <div class="shop-ctl"><input class="in qty" type="number" min="0" step="0.05" inputmode="decimal" data-action-change="shop-qty" data-id="${it.id}" value="${it.qty}" aria-label="${t('shop_qty')}"><select class="in unit" data-action-change="shop-unit" data-id="${it.id}" aria-label="${t('shop_unit')}">${unitOpts(it.unit)}</select>
+        ${it.unit === 'birr' ? `<span class="tiny muted">${t('u3_birr_d')}</span>` : `<span class="tiny muted">×</span><input class="in price" type="number" min="0" step="1" inputmode="decimal" data-action-change="shop-price" data-id="${it.id}" value="${it.price != null ? it.price : ''}" placeholder="ETB" aria-label="${t('shop_price_ph')}"><span class="tiny muted">ETB/${esc(uLabel(it.unit))}</span>`}</div></div>`).join('')}</div>`; }).join('') +
+      (swaps.length ? `<div class="card" id="shopSwaps"><h3>💡 ${t('sw_title')}</h3><ul class="clean small">${swaps.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="tiny muted">${t('sw_note')}</p></div>` : '') +
+      addForm() + `<p class="tiny muted">💲 ${t('pl_price_label')} ${t('shop_manual_note')}</p>`;
   };
-  function addForm() { return `<div class="card"><h3>+ ${t('shop_add')}</h3><input class="in" id="shopName" placeholder="${t('shop_name')}"><div class="grid3" style="margin-top:8px"><input class="in" id="shopQty" type="number" step="0.1" value="1"><input class="in" id="shopUnit" value="kg"><select class="in" id="shopCat">${PL.CATS.map(c => `<option value="${c}">${t('shop_' + c)}</option>`).join('')}</select></div><input class="in" id="shopPrice" type="number" min="0" placeholder="${t('shop_price_ph')}" style="margin-top:8px"><button class="btn block" style="margin-top:8px" data-action="shop-add" id="shopAdd">${t('shop_add')}</button></div>`; }
+  function uLabel(u) { const x = t('u3_' + u); return x === 'u3_' + u ? u : x; }
+  function unitOpts(cur) { const us = PL.UNITS.includes(cur) ? PL.UNITS : PL.UNITS.concat([cur]); return us.map(u => `<option value="${esc(u)}" ${u === cur ? 'selected' : ''}>${esc(uLabel(u))}</option>`).join(''); }
+  function shopSwaps(sl) {
+    const P = PL.prices(), out = [], open = sl.items.filter(i => !i.checked), has = k => open.find(i => i.ing === k), named = re => open.find(i => !i.ing && re.test(i.name || ''));
+    const b = has('beef'); if (b) out.push(t('sw_l_beef', { s: R((b.qty / 2) * (P.beef - P.lentils * 2)) }));
+    const c = has('chicken'); if (c) out.push(t('sw_l_chicken', { s: R(c.qty * (P.chicken - P.chickpeas)) }));
+    const k = has('kibbeh'); if (k) out.push(t('sw_l_kibbeh', { s: R(k.qty * P.kibbeh - k.qty * 2 * P.veg_oil) }));
+    if (has('pasta') || has('rice')) out.push(t('sw_l_grain'));
+    if (named(/soda|coca|cola|pepsi|juice|ለስላሳ|ጭማቂ/i)) out.push(t('sw_l_soda'));
+    if (named(/sugar|ስኳር/i)) out.push(t('sw_l_sugar'));
+    if (named(/white bread|bread|ዳቦ/i)) out.push(t('sw_l_bread'));
+    if (named(/oats|quinoa|olive|salmon|almond|chia/i)) out.push(t('sw_l_imported'));
+    return out.filter(x => !/-\d/.test(x));
+  }
+  function addForm() { return `<div class="card"><h3>+ ${t('shop_add')}</h3><input class="in" id="shopName" placeholder="${t('shop_name')}"><div class="grid3" style="margin-top:8px"><input class="in" id="shopQty" type="number" step="0.1" value="1"><select class="in" id="shopUnit">${unitOpts('kg')}</select><select class="in" id="shopCat">${PL.CATS.map(c => `<option value="${c}">${t('shop_' + c)}</option>`).join('')}</select></div><input class="in" id="shopPrice" type="number" min="0" placeholder="${t('shop_price_ph')}" style="margin-top:8px"><button class="btn block" style="margin-top:8px" data-action="shop-add" id="shopAdd">${t('shop_add')}</button></div>`; }
   function shopUpd(fn) { const sl = DB.get('shopping') || { created: Date.now(), items: [] }; fn(sl); DB.set('shopping', sl); }
   A['shop-add'] = () => { const n = $('#shopName').value.trim(); if (!n) return; shopUpd(sl => sl.items.push({ id: uid(), name: n, cat: $('#shopCat').value, qty: +$('#shopQty').value || 1, unit: $('#shopUnit').value || '', price: +$('#shopPrice').value || 0, checked: false })); N.rerender(); };
   A['shop-del'] = el => { shopUpd(sl => sl.items = sl.items.filter(i => i.id !== el.dataset.id)); N.rerender(); };
@@ -279,6 +315,12 @@
   };
   const C = {};
   C['shop-check'] = el => { shopUpd(sl => { const it = sl.items.find(i => i.id === el.dataset.id); if (it) it.checked = el.checked; }); N.rerender(); };
+  C['shop-unit'] = el => { shopUpd(sl => { const it = sl.items.find(i => i.id === el.dataset.id); if (!it) return; const from = it.unit, to = el.value;
+      if (from === 'kg' && to === 'quintal') { it.qty = Math.round(it.qty / 100 * 1000) / 1000; if (it.price != null) it.price = it.price * 100; }
+      else if (from === 'quintal' && to === 'kg') { it.qty = Math.round(it.qty * 100 * 100) / 100; if (it.price != null) it.price = it.price / 100; }
+      else if (to === 'birr') { it.qty = Math.round(PL.itemCost(it)) || it.qty; }
+      it.unit = to; }); N.rerender(); };
+  C['shop-price'] = el => { shopUpd(sl => { const it = sl.items.find(i => i.id === el.dataset.id); if (it) { it.price = Math.max(0, +el.value || 0); it.manualPrice = true; } }); N.rerender(); };
   C['shop-qty'] = el => { shopUpd(sl => { const it = sl.items.find(i => i.id === el.dataset.id); if (it) it.qty = Math.max(0, +el.value || 0); }); N.rerender(); };
   C['rest-cmp'] = el => { const id = el.dataset.id, c = S.rest.compare; if (el.checked) { if (c.length >= 3) { el.checked = false; return toast(t('rest_max3')); } c.push(id); } else S.rest.compare = c.filter(x => x !== id); N.rerender(); };
   C['rest-injera'] = el => { S.rest.injera = el.checked; N.rerender(); };
@@ -291,12 +333,13 @@
     return `<div class="card" id="shareForm"><h3>${t('fam_create')}</h3>
       <label class="f" for="shWho">${t('fam_recipient')}</label><input class="in" id="shWho" placeholder="${t('fam_recipient_ph')}">
       <label class="f">${t('fam_role')}</label><div class="seg" id="shRole">${ROLES.map(r => `<button type="button" class="${(S.share.role || role) === r ? 'on' : ''}" data-action="sh-role" data-v="${r}">${t('role_' + r)}</button>`).join('')}</div>
-      <label class="f">${t('fam_what')}</label><div class="catlist">${SH.CATS.map(c => `<label class="check"><input type="checkbox" data-action-change="sh-cat" data-v="${c}" ${sel.includes(c) ? 'checked' : ''}><span class="small">${t('shc_' + c)}${c === 'meds' ? ` <span class="pill adjust tiny">${t('fam_sensitive')}</span>` : ''}</span></label>`).join('')}</div>
+      <label class="f">${t('fam_what')}</label><button type="button" class="btn sm soft" data-action="sh-preset" id="shPreset" style="margin-bottom:8px">👨‍👩‍👧 ${t('fam_preset_helper')}</button><p class="tiny muted" style="margin:0 0 6px">${t('fam_preset_helper_d')}</p><div class="catlist">${SH.CATS.map(c => `<label class="check"><input type="checkbox" data-action-change="sh-cat" data-v="${c}" ${sel.includes(c) ? 'checked' : ''}><span class="small">${t('shc_' + c)}${c === 'meds' ? ` <span class="pill adjust tiny">${t('fam_sensitive')}</span>` : ''}</span></label>`).join('')}</div>
       <label class="f">${t('fam_expires')}</label><div class="seg" id="shExp">${[7, 30, 90].map(d => `<button type="button" class="${d === 30 ? 'on' : ''}" data-action="seg-pick" data-v="${d}">${t('fam_days', { n: d })}</button>`).join('')}</div>
       <label class="f" for="shPass">${t('fam_pass')}</label><div class="row" style="gap:8px"><input class="in" id="shPass" autocomplete="off" minlength="8"><button class="btn sm ghost" data-action="sh-genpass">🎲</button></div><p class="tiny muted">${t('fam_pass_d')}</p>
       <label class="check"><input type="checkbox" id="shConsent"><span class="small">${t('fam_consent')}</span></label>
       <button class="btn block" data-action="sh-create" id="shCreate">🔐 ${t('fam_make')}</button></div>`;
   }
+  A['sh-preset'] = () => { S.share.cats = ['profile', 'reminders', 'checkups', 'bp', 'glucose']; N.rerender(); };
   ROUTES.family = function () {
     const shares = SH.adapter.listShares().sort((a, b) => b.created - a.created), sup = DB.get('supporting', []);
     const out = S.share.out;
@@ -397,9 +440,15 @@
     if (d.glogs) { const gl = d.glogs.filter(l => l.post != null); out.push(`<div class="card sec"><h3>📊 ${t('shc_glogs')}</h3>${gl.length ? `<table class="tbl small"><tr><th>${t('rep_date')}</th><th>${t('rep_meal')}</th><th>${t('gl_pre')}</th><th>${t('gl_post')}</th><th>Δ</th></tr>${gl.slice().sort((a, b) => b.ts - a.ts).slice(0, 15).map(l => `<tr><td>${dstr(l.ts)}</td><td>${esc(l.name || t('meal_' + l.meal))}${l.activity && l.activity !== 'none' ? ' · ' + t('act2_' + l.activity) : ''}</td><td>${G(l.pre)}</td><td>${G(l.post)}</td><td>${l.post - l.pre >= 0 ? '+' : ''}${u === 'mmol' ? ((l.post - l.pre) / 18).toFixed(1) : R(l.post - l.pre)}</td></tr>`).join('')}</table><p class="tiny muted">${t('gl_disclaimer')}</p>` : `<p class="small muted">${t('rd_none')}</p>`}</div>`); }
     if (d.plan) out.push(`<div class="card sec"><h3>💰 ${t('shc_plan')}</h3>${d.plan.days.slice(0, 7).map(x => `<div class="small"><b>${new Date(x.date).toLocaleDateString(L() === 'am' ? 'am-ET' : 'en-GB', { weekday: 'short' })}</b>: ${Object.values(x.meals).map(id => { const ds = PL.dish(id); return ds ? esc(tr(ds.name)) : id; }).join(' · ')}</div>`).join('')}</div>`);
     if (d.checkups) out.push(`<div class="card sec"><h3>📅 ${t('shc_checkups')}</h3>${d.checkups.length ? d.checkups.slice().sort((a, b) => b.date.localeCompare(a.date)).map(c => `<div class="small">• ${esc(c.date)} — ${t('ck_' + c.type)}${c.note ? ': ' + esc(c.note) : ''}${c.next ? ` · ${t('ck_next')}: <b>${esc(c.next)}</b>` : ''}</div>`).join('') : `<p class="small muted">—</p>`}</div>`);
+    if (d.reminders) out.push(`<div class="card sec"><h3>⏰ ${t('shc_reminders')}</h3>${d.reminders.length ? d.reminders.map(r => `<div class="small">• ${esc(r.time || '')} — ${esc(r.title || t('rem_k_' + r.kind))}${r.date ? ' (' + esc(r.date) + ')' : r.days && r.days.length ? ' (' + r.days.map(x => t('dow_' + x)).join(' ') + ')' : ''}</div>`).join('') : `<p class="small muted">—</p>`}</div>`);
     if (d.journey) { const w = d.journey.week, m = d.journey.month; out.push(`<div class="card sec"><h3>🌱 ${t('shc_journey')}</h3><div class="kv"><span>${t('jr_week')}</span><b>${t('jr_sum_line', { d: w.activeDays, m: w.meals, a: w.actMin })}</b><span>${t('jr_month')}</span><b>${t('jr_sum_line', { d: m.activeDays, m: m.meals, a: m.actMin })}</b></div></div>`); }
     return out.join('');
   }
+  A['sup-rem-import'] = el => {
+    const p = DB.get('supporting', []).find(x => x.id === el.dataset.id); if (!p || !p.data.reminders) return;
+    const who = p.from || t('role_family'), cur = DB.get('reminders', []); let n = 0;
+    p.data.reminders.forEach(r => { if (cur.some(x => x.forWho === who && x.time === r.time && (x.title || '') === (r.title || '') && x.kind === r.kind)) return; cur.push({ id: uid(), kind: r.kind, title: r.title || '', time: r.time, days: r.days || [], date: r.date, on: true, forWho: who, created: Date.now(), fromShare: p.id }); n++; });
+    DB.set('reminders', cur); toast('✓ ' + t('sup_rem_imported', { n })); };
   ROUTES.supporting = function () {
     const id = qp('id'), mode = qp('mode') || 'family', p = DB.get('supporting', []).find(x => x.id === id);
     if (!p) return hdr(t('fam_supporting'), 'family') + `<p class="muted">—</p>`;
@@ -412,7 +461,7 @@
       ${flag ? `<div class="banner ${flag.level === 'emergency' ? 'red' : 'amber'} small">${flag.level === 'emergency' ? '🚨' : '⚠️'} ${t('sup_flag')}</div>` : ''}
       ${nextApt ? `<div class="banner green small">📅 ${t('sup_next_apt', { d: nextApt })}</div>` : ''}
       ${mode === 'clinician' ? `<div class="note">🩺 ${t('cl_self_reported')}</div>` : `<p class="small muted">${t('sup_tips')}</p>`}
-      ${stats(d, mode)}<p class="tiny muted">${t('sup_shared_cats')}: ${p.cats.map(c => t('shc_' + c)).join(', ')}</p>`;
+      ${stats(d, mode)}${d.reminders && d.reminders.length && mode !== 'clinician' && !exp ? `<button class="btn block" data-action="sup-rem-import" data-id="${p.id}" id="supRemImport">⏰ ${t('sup_rem_import')}</button><p class="tiny muted">${t('sup_rem_import_d')}</p>` : ''}<p class="tiny muted">${t('sup_shared_cats')}: ${p.cats.map(c => t('shc_' + c)).join(', ')}</p>`;
   };
 
   /* ---------- CLINICIAN / REPORT ---------- */

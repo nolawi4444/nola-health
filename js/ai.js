@@ -52,7 +52,7 @@ SAFETY RULES (never break):
 7. Suggest seeing a doctor or dietitian when advice needs individual medical judgement (kidney disease, pregnancy, insulin plans, repeated abnormal readings).
 USER PROFILE: name ${pr.name || ''}; age ${window.NolaEngine.age(pr)}; sex ${pr.gender || 'unspecified'}; weight ${pr.weight} kg; height ${pr.height} cm; conditions: ${conds}; allergies: ${(pr.allergies || []).join(', ') || 'none'} ${pr.allergyOther || ''}; diet: ${(pr.restrictions || []).join(', ') || 'none'}; likes: ${pr.fav || ''}; medications (context only, never advise changes): ${pr.meds || 'not given'}; activity: ${pr.activity}; goals: ${(pr.goals || []).join(', ')}.
 DAILY TARGETS: ${T.kcal} kcal, carbs ~${T.c} g (~${Math.round(T.c * 0.3)} g per meal), sodium <${T.na} mg, saturated fat <${T.sf} g, fiber >=${T.fb} g, added sugar <${T.as} g.
-STYLE: short (under 150 words), simple words, bullet points, local food examples and portions (e.g. "½ injera"). Reply in ${lang === 'am' ? 'Amharic (አማርኛ), using Ge\'ez script' : 'English'}.`;
+STYLE: SHORT — under 90 words, 3–5 short bullet points, plain everyday words a 75-year-old understands (no medical jargon; explain any number simply), local food examples and portions (e.g. "½ injera"). Reply in ${lang === 'am' ? 'Amharic (አማርኛ), using Ge\'ez script' : 'English'}.`;
   }
   window.NolaAI = { enabled, chat, recognize, coachSystem, cfg };
 })();

@@ -8,7 +8,10 @@
     return { has, T, dm: E().isDiabetic(pr), htn: has('htn') || has('heart'), chol: has('chol') || has('heart'), wt: has('obesity') || T.loss, guide, inj: E().frac(inj), fasting: (pr.restrictions || []).includes('fasting') };
   }
   const TOPICS = [
-    ['meds', /medic|medicine|metformin|insulin|dose|pill|tablet|stop taking|amlodipine|statin|መድሃኒት|መድኃኒት|ኪኒን|ኢንሱሊን/i],
+    ['meds', /medicat|medicine|metformin|insulin|dose|pill|tablet|stop taking|amlodipine|statin|መድሃኒት|መድኃኒት|ኪኒን|ኢንሱሊን/i],
+    ['bp_mean', /(what does|mean|meaning|my reading|reading mean).{0,40}(blood pressure|\bbp\b)|(blood pressure|\bbp\b).{0,40}(mean|meaning)|ግፊ.{0,30}(ምን ማለት|ትርጉም)|(ምን ማለት).{0,30}ግፊ/i],
+    ['glucose_why', /(why|chang|go(es)? up|fluctuat|swing|up and down).{0,40}(blood sugar|glucose|sugar level)|(blood sugar|glucose|sugar level).{0,40}(why|chang|up and down|fluctuat|go(es)? up)|ስኳ.{0,30}(ለምን|ይቀያየራል|ይለዋወጣል|ይጨምራል|ይቀየራል)|ለምን.{0,30}ስኳ/i],
+    ['shiro', /shiro|shuro|ሽሮ/i],
     ['breakfast', /breakfast|morning|ቁርስ|ጠዋት/i],
     ['injera', /injera|enjera|teff|tef|እንጀራ|ጤፍ/i],
     ['rice', /rice|pasta|macaroni|spaghetti|ሩዝ|ፓስታ|መኮሮኒ/i],
@@ -24,7 +27,7 @@
     ['meat', /meat|kitfo|tibs|doro|beef|chicken|ስጋ|ክትፎ|ጥብስ|ዶሮ/i],
     ['exercise', /exercise|walk|gym|sport|workout|activity|እንቅስቃሴ|ስፖርት|መራመድ|ልምምድ/i],
     ['weight', /weight|lose|slim|obes|ክብደት|ውፍረት|መቀነስ/i],
-    ['bp', /blood pressure|hypertension|\bbp\b|ግፊት/i],
+    ['bp', /blood pressure|hypertension|\bbp\b|ግፊ/i],
     ['dinner', /dinner|lunch|eat today|what (should|can) i eat|meal plan|ምሳ|እራት|ምን ልብላ/i],
   ];
   function detect(q) { for (const [k, re] of TOPICS) if (re.test(q)) return k; return 'default'; }
@@ -141,6 +144,37 @@
         add('• Biggest easy wins: fewer sugary drinks, less oil/butter in wot, smaller second helpings.', '• ቀላል ትልቅ ለውጦች፡ ጣፋጭ መጠጥ መቀነስ፣ በወጥ ውስጥ ዘይት/ቅቤ መቀነስ፣ ሁለተኛ ማንሳትን መቀነስ።');
         add('• Aim for 0.5–1 kg per week — slow is sustainable.', '• በሳምንት 0.5–1 ኪ.ግ ያቅዱ — ቀስ ብሎ ዘላቂ ነው።');
         src = ['ADA / Diabetes Prevention Program', 'WHO']; break;
+      case 'bp_mean': {
+        const rs = (window.NolaDB.get('readings', []) || []).filter(r => r.type === 'bp').sort((x, y) => y.ts - x.ts), bp = rs[0];
+        if (bp) {
+          const cat = window.NolaBrain.bpCat(bp.sys, bp.dia);
+          const catEn = { crisis: 'very high (180/120 or more)', stage2: 'high — stage 2 (140/90 or more)', stage1: 'high — stage 1 (130–139 / 80–89)', elevated: 'a little raised (120–129 top number)', normal: 'normal (under 120/80)', low: 'low' }[cat] || cat;
+          const catAm = { crisis: 'በጣም ከፍተኛ (180/120 እና በላይ)', stage2: 'ከፍተኛ — ደረጃ 2 (140/90 እና በላይ)', stage1: 'ከፍተኛ — ደረጃ 1 (130–139 / 80–89)', elevated: 'ትንሽ ከፍ ያለ (ላይኛው 120–129)', normal: 'መደበኛ (ከ120/80 በታች)', low: 'ዝቅተኛ' }[cat] || cat;
+          add(`Your last reading **${bp.sys}/${bp.dia}** is ${catEn} on the AHA scale.`, `የመጨረሻው ልኬትዎ **${bp.sys}/${bp.dia}** በAHA መለኪያ ${catAm} ነው።`);
+        } else add('You have not saved a blood pressure reading yet. Tell me one, e.g. "BP 130/85".', 'እስካሁን የደም ግፊት ልኬት አላስቀመጡም። ለምሳሌ "ግፊት 130/85" ብለው ይንገሩኝ።');
+        add('• Top number = pressure when the heart beats. Bottom number = pressure when it rests.', '• ላይኛው ቁጥር = ልብ ሲመታ ያለው ግፊት። ታችኛው ቁጥር = ልብ ሲያርፍ ያለው ግፊት።');
+        add('• One reading can be high from stress, coffee or rushing. Sit quietly 5 minutes and measure again.', '• አንድ ልኬት በጭንቀት፣ ቡና ወይም ጥድፊያ ከፍ ሊል ይችላል። 5 ደቂቃ በጸጥታ ተቀምጠው እንደገና ይለኩ።');
+        add('• If it stays at 130/80 or more on different days, show your readings to a health worker.', '• በተለያዩ ቀናት 130/80 እና በላይ ከሆነ ልኬቶችዎን ለጤና ባለሙያ ያሳዩ።');
+        add('• 180/120 or more with chest pain, headache or weakness: call 907 now.', '• 180/120 እና በላይ ከደረት ህመም፣ ራስ ምታት ወይም ድካም ጋር፡ አሁኑኑ 907 ይደውሉ።');
+        src = ['AHA 2017/2025 BP guideline']; break;
+      }
+      case 'glucose_why':
+        add('**Blood sugar goes up and down every day — that is normal.** Common reasons:', '**የደም ስኳር በየቀኑ ይወጣል ይወርዳል — ይህ የተለመደ ነው።** የተለመዱ ምክንያቶች፡');
+        add('• Food: injera, bread, rice, sugar and sweet drinks raise it most. Big portions raise it more.', '• ምግብ፡ እንጀራ፣ ዳቦ፣ ሩዝ፣ ስኳርና ጣፋጭ መጠጦች በብዛት ያሳድጉታል። ትልቅ መጠን የበለጠ ያሳድጋል።');
+        add('• Walking and activity bring it down. Stress, illness and poor sleep can push it up.', '• መራመድና እንቅስቃሴ ያወርዱታል። ጭንቀት፣ ህመምና የእንቅልፍ እጥረት ሊያሳድጉት ይችላሉ።');
+        add('• Time matters: it is highest about 1–2 hours after eating, and can be higher in the early morning.', '• ሰዓት፡ ከምግብ 1–2 ሰዓት በኋላ ከፍተኛ ነው፤ ማለዳም ከፍ ሊል ይችላል።');
+        add('• Medicines matter too — never change them yourself; ask your doctor if numbers keep changing.', '• መድሃኒቶችም ተጽእኖ አላቸው — በራስዎ አይቀይሩ፤ ቁጥሮች መቀያየር ከቀጠሉ ሐኪምዎን ይጠይቁ።');
+        add('Tip: check before a meal and 2 hours after in "Glucose & meals" to see which foods affect you.', 'ምክር፡ የትኛው ምግብ እንደሚነካዎ ለማየት ከምግብ በፊትና ከ2 ሰዓት በኋላ በ"ምግብና የደም ስኳር" ይለኩ።');
+        src = ['ADA Standards of Care 2025']; break;
+      case 'shiro':
+        add('**Yes — shiro is a good choice for most people.** It is made from chickpea or pea flour: protein + fiber, so blood sugar rises slowly.', '**አዎ — ሽሮ ለብዙ ሰው ጥሩ ምርጫ ነው።** ከሽንብራ ወይም አተር ዱቄት ይሰራል፡ ፕሮቲንና ፋይበር ስላለው ስኳር በዝግታ ይጨምራል።');
+        add('• Recipes differ: home shiro uses a little oil; restaurant shiro tegabino often has much more butter/oil and salt.', '• አሰራሩ ይለያያል፡ የቤት ሽሮ ትንሽ ዘይት አለው፤ የምግብ ቤት ሽሮ ተጋቢኖ ብዙ ቅቤ/ዘይትና ጨው ሊኖረው ይችላል።');
+        if (c.dm) add(`• For you: about 1 cup of shiro with ${c.inj} injera and gomen or salad fits your meal carb guide (~${c.guide} g).`, `• ለእርስዎ፡ 1 ኩባያ ሽሮ ከ${c.inj} እንጀራና ጎመን ወይም ሰላጣ ጋር ከምግብ ካርቦሃይድሬት መመሪያዎ (~${c.guide} ግ) ጋር ይስማማል።`);
+        if (c.htn) add('• For blood pressure: ask for less salt; many shiro powders and berbere already contain salt.', '• ለደም ግፊት፡ ትንሽ ጨው ይጠይቁ፤ ብዙ የሽሮ ዱቄትና በርበሬ ጨው አላቸው።');
+        if (c.chol) add('• For cholesterol: choose shiro made with vegetable oil rather than niter kibbeh.', '• ለኮሌስትሮል፡ በንጥር ቅቤ ሳይሆን በአትክልት ዘይት የተሰራ ሽሮ ይምረጡ።');
+        if (((window.NolaDB.get('profile', {}) || {}).allergies || []).includes('legume')) add('⚠️ You listed a legume allergy — shiro is made from legumes, so avoid it unless your doctor says it is safe.', '⚠️ የጥራጥሬ አለርጂ አለኝ ብለዋል — ሽሮ ከጥራጥሬ ስለሚሰራ ሐኪምዎ ካልፈቀዱ አይብሉ።');
+        if (c.has('kidney')) add('• With kidney disease, ask a dietitian about your legume portion (protein and potassium).', '• የኩላሊት ህመም ካለ ስለ ጥራጥሬ መጠን የምግብ ባለሙያ ይጠይቁ።');
+        src = ['ADA Nutrition Consensus 2019', 'Ethiopian Food Composition Table']; break;
       case 'bp':
         add('**Food that helps blood pressure (DASH style):**', '**የደም ግፊትን የሚረዳ ምግብ (DASH)፡**');
         add(`• Sodium under ${c.T.na} mg/day — less salt and salted berbere`, `• ሶዲየም በቀን ከ${c.T.na} ሚ.ግ በታች — ትንሽ ጨውና ጨዋማ በርበሬ`);

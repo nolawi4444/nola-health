@@ -86,7 +86,10 @@
     return s;
   }
   function generate(opts) {
-    const pr = DB().get('profile'), P = prices();
+    const base = DB().get('profile'), P = prices();
+    const pr = Object.assign({}, base, { restrictions: [...new Set([...(base.restrictions || []), ...(opts.restrictions || [])])] });
+    const prefer = (opts.prefer || []).map(x => x.toLowerCase());
+    const preferHit = d => prefer.length && d.items.some(([id]) => { const f = F().byId[id]; return f && prefer.some(w => f.id.includes(w) || f.name.en.toLowerCase().includes(w)); });
     const people = Math.max(1, +opts.people || 1), daily = opts.period === 'week' ? opts.amount / 7 : +opts.amount;
     const fastWD = (pr.restrictions || []).includes('fasting');
     const used = {}, days = [];
@@ -102,7 +105,7 @@
         let best = null, bestS = 1e9;
         cands.forEach(d => {
           const items = dishItems(d, pr), cost = dishCost(d, P, people, opts.available, items), an = sev(d, slot);
-          let s = an.s * 45 + (cost / people) / (perMeal / people * (slot === 'snack' ? 0.4 : 1)) * 22 + (used[d.id] || 0) * 20 + prefScore(d);
+          let s = an.s * 45 + (cost / people) / (perMeal / people * (slot === 'snack' ? 0.4 : 1)) * 22 + (used[d.id] || 0) * 20 + prefScore(d) - (preferHit(d) ? 25 : 0) - (opts.available && opts.available.length && Object.keys(d.ing).some(k => opts.available.includes(k) && !['salt', 'veg_oil', 'onion', 'berbere'].includes(k)) ? 8 : 0);
           if (Object.values(meals).some(m => m.dish === d.id)) s += 200;
           if (s < bestS) { bestS = s; best = { dish: d.id, cost, verdict: an.a.verdict, items }; }
         });
@@ -122,7 +125,7 @@
       days.push({ date: +date, dow, fastingDay, meals, cost: dayCost(), totals: tot });
     }
     const total = days.reduce((a, d) => a + d.cost, 0);
-    const plan = { id: Date.now().toString(36), created: Date.now(), amount: +opts.amount, period: opts.period, people, daily, available: opts.available || [], fastingSeason: !!opts.fastingSeason,
+    const plan = { id: Date.now().toString(36), created: Date.now(), amount: +opts.amount, period: opts.period, people, daily, available: opts.available || [], prefer: opts.prefer || [], restrictions: opts.restrictions || [], fastingSeason: !!opts.fastingSeason,
       days, total, overBudget: days.some(d => d.cost > daily * 1.001) };
     DB().set('plan', plan);
     return plan;
@@ -140,6 +143,17 @@
     DB().set('shopping', list);
     return list;
   }
-  function itemCost(it) { return (+it.qty || 0) * (+it.price || 0); }
-  window.NolaPlanner = { allowed, prefScore, SLOT, ING, CATS, DISHES, prices, generate, shoppingFromPlan, dishItems, itemCost, dish: id => DISHES.find(d => d.id === id) };
+  function itemCost(it) { return it.unit === 'birr' ? (+it.qty || 0) : (+it.qty || 0) * (+it.price || 0); }
+  /* Ethiopian market units. 'birr' = "birr worth" (qty is the amount of money). quintal = 100 kg; tera = bundle. */
+  const UNITS = ['kg', 'quintal', 'tera', 'pc', 'L', 'birr'];
+  /* Price-feed adapter — PLACEHOLDER, NOT ACTIVE. No reliable live retail food-price feed for Ethiopian markets is integrated.
+     An adapter must implement: { name, source, async fetchPrices() -> { prices: { ingredientId: ETB per unit }, updated: ISO date } }
+     and be registered with NolaPlanner.priceFeed.register(adapter). Until then, prices are the editable approximate table + manual entry. */
+  const priceFeed = {
+    adapter: null,
+    register(a) { if (!a || typeof a.fetchPrices !== 'function') throw new Error('adapter needs fetchPrices()'); this.adapter = a; },
+    status() { return this.adapter ? 'ready' : 'none'; },
+    async refresh() { if (!this.adapter) throw new Error('No price feed configured (requires a data source)'); const r = await this.adapter.fetchPrices(); DB().set('prices', Object.assign({}, DB().get('prices', {}), r.prices || {})); return r; },
+  };
+  window.NolaPlanner = { allowed, prefScore, SLOT, ING, CATS, DISHES, prices, generate, shoppingFromPlan, dishItems, itemCost, UNITS, priceFeed, dish: id => DISHES.find(d => d.id === id) };
 })();
