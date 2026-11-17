@@ -3,12 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#15803d">
+<meta name="theme-color" content="#0b1f3a">
 <meta name="description" content="NOLA HEALTH — Your Health. Your Food. Your Wellbeing. Health records, Ethiopian meal plans, reminders, food scanning and a health Doctor assistant in English and Amharic.">
 <title>NOLA HEALTH</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="NOLA HEALTH">
+<meta name="format-detection" content="telephone=no">
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
@@ -16,9 +21,9 @@
 <header class="topbar" id="topbar">
   <a class="brand" href="#/home" aria-label="NOLA HEALTH"><img src="icons/icon.svg" alt="" width="36" height="36"><span><b>NOLA HEALTH</b><small data-t="x_tagline">Your Health. Your Food. Your Wellbeing.</small></span></a>
   <nav class="mainnav" id="mainnav" aria-label="Main" hidden>
-    <a href="#/home" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span data-t="x_nav_home">Home</span></a>
-    <a href="#/doctor" data-nav="doctor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v5M9.5 10.5h5"/></svg><span data-t="x_nav_doctor">Doctor</span></a>
-    <a href="#/about" data-nav="about"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span data-t="x_nav_about">About</span></a>
+    <a href="#/home" data-nav="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span data-t="x_nav_home">Home</span></a>
+    <a href="#/doctor" data-nav="doctor"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v5a4 4 0 0 0 8 0V4"/><path d="M9 13v2a5 5 0 0 0 10 0v-2"/><circle cx="19" cy="11" r="2"/></svg><span data-t="x_nav_doctor">Doctor</span></a>
+    <a href="#/about" data-nav="about"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span data-t="x_nav_about">About</span></a>
   </nav>
   <button class="lang-btn" id="langBtn" data-action="toggle-lang" aria-label="Language">አማርኛ</button>
 </header>
@@ -31,7 +36,7 @@
 <script src="js/i18n.js"></script>
 <script src="js/i18n31.js"></script>
 <script src="js/i18n4.js"></script>
-<script src="js/i18n5.js"></script>
+<script src="js/i18n5.js"></script><script src="js/i18n51.js"></script>
 <script src="js/foods.js"></script>
 <script src="js/crypto.js"></script>
 <script src="js/db.js"></script>

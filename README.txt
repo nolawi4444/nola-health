@@ -1,4 +1,4 @@
-NOLA HEALTH v5.0 - Your Health. Your Food. Your Wellbeing.
+NOLA HEALTH v5.1 - Your Health. Your Food. Your Wellbeing.
 ==========================================================
 
 LIVE: https://nolawi4444.github.io/nola-health/  (open on your phone -> "Add to Home screen")
@@ -41,7 +41,16 @@ DOCTOR - uses your saved profile, readings and goals. Explains symptoms, conditi
   consent (toggle + list of saved facts you can delete). Conversation summary and questions to ask your
   health professional. Never diagnoses or prescribes; says what it cannot know.
 
-ABOUT - introduction, mission, vision, why Ethiopia, privacy, responsible AI, safety, contact.
+ABOUT - your profile: profile picture (upload/change/remove; stored only on this device, encrypted
+        when a PIN is set; initials shown when there is no photo), full name, age, sex, height, weight,
+        BMI, language, blood-sugar unit, conditions, allergies, medicines, goals and food preferences,
+        with an Edit link to the profile editor. Privacy, responsible-AI and safety information is
+        shown on the first-open consent screen and in the small footer on every page.
+
+v5.1 DESIGN - white, deep navy and medical teal; dashboard Home (greeting, latest BP / sugar / weight,
+        reminders done today, meal calories today); Doctor with chat bubbles, report cards (summary,
+        questions to ask, red flags, lab review) and a typing animation; one SVG icon set; iPhone
+        safe areas, 16px inputs, 44px+ touch targets; animations respect "reduce motion".
   Contact details are a placeholder: edit js/config.js (window.NOLA_CONFIG.contact).
 
 PRIVACY & SECURITY - consent screen before any health data is stored; all data stays on the device

@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   const DB = window.NolaDB, E = window.NolaEngine, F = window.NolaFoods, MD = window.NolaMeds, DI = window.NolaDishes, AI = window.NolaAI, CO = window.NolaCoach, CH = window.NolaCharts, P = window.NolaPlus;
-  const VERSION = '5.0.0', DAY = 864e5;
+  const VERSION = '5.1.0', DAY = 864e5;
   const $ = (s, el = document) => el.querySelector(s), $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -104,7 +104,7 @@
     return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').split('\n').map(l => l.trim()).filter(Boolean).map(l => /^[•\-] /.test(l) ? `<li>${l.replace(/^[•\-] /, '')}</li>` : `<p>${l}</p>`).join('').replace(/(<li>.*?<\/li>)+/g, m => `<ul>${m}</ul>`);
   }
   let toastT = 0;
-  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600); }
+  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.toggle('ok', /^✓/.test(msg)); el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600); }
   function showAlert(flag) {
     const em = flag.level === 'emergency';
     const box = $('#alert');
@@ -115,7 +115,45 @@
     box.hidden = false;
   }
   function loader(on, txt) { $('#loader').hidden = !on; $('#loaderText').textContent = txt || ''; }
-  const back = (href, title) => `<div class="pagehead"><a class="backbtn" href="${href}" aria-label="${t('x_back')}">‹</a><h1>${title}</h1></div>`;
+  /* v5.1 consistent SVG icon set (24×24, stroke) */
+  const IC = {
+    heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
+    pulse: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+    drop: '<path d="M12 2.7s-6.5 7-6.5 11.8a6.5 6.5 0 0 0 13 0C18.5 9.7 12 2.7 12 2.7z"/>',
+    scale: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 10a5 5 0 0 1 8 0"/><path d="m12 10 1.6-2.2"/>',
+    plate: '<path d="M4 3v7a3 3 0 0 0 3 3v8M7 3v5M10 3v7a3 3 0 0 1-3 3"/><path d="M18 3c-2 2-3 4.5-3 7.5 0 1.5 1 2.5 3 2.5v8"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+    camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/>',
+    flame: '<path d="M12 22c4 0 7-2.7 7-6.8 0-3.6-2.5-6.2-4.2-8.2-.3 2-1.3 3.3-2.6 3.3C12 8 13 5 11 2 8.6 4.6 5 8.6 5 15.2 5 19.3 8 22 12 22z"/>',
+    checkc: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    chev: '<path d="m9 6 6 6-6 6"/>', back: '<path d="m15 6-6 6 6 6"/>',
+    steth: '<path d="M5 4v5a4 4 0 0 0 8 0V4"/><path d="M9 13v2a5 5 0 0 0 10 0v-2"/><circle cx="19" cy="11" r="2"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+    trash: '<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+    brain: '<path d="M12 5a3 3 0 0 0-5.9.8A3 3 0 0 0 4 11a3 3 0 0 0 2 5.2A3 3 0 0 0 12 18zM12 5a3 3 0 0 1 5.9.8A3 3 0 0 1 20 11a3 3 0 0 1-2 5.2A3 3 0 0 1 12 18z"/>',
+    doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+    clip: '<path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4L15.5 7"/>',
+    send: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    alert: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+    help: '<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>',
+    flask: '<path d="M9 3h6M10 3v6L4.5 18.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/><path d="M7 15h10"/>',
+    shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
+    sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/>',
+    lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+    pill: '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7z"/><path d="m8.5 8.5 7 7"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    ruler: '<path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/>',
+    cal: '<rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+  };
+  const ic = (n, c = '') => `<svg class="ic${c ? ' ' + c : ''}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${IC[n] || ''}</svg>`;
+  const initials = n => String(n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+  const avatarHtml = (cls, pr) => { const a = DB.get('avatar', null), nm = (pr || profile() || {}).name; return a ? `<img class="${cls}" src="${a}" alt="${esc(nm || '')}">` : `<span class="${cls} initials" aria-hidden="true">${esc(initials(nm))}</span>`; };
+  const back = (href, title) => `<div class="pagehead"><a class="backbtn" href="${href}" aria-label="${t('x_back')}">${ic('back')}</a><h1>${title}</h1></div>`;
   const chip = (k, v, label, on, extra = '') => `<button type="button" class="chip ${on ? 'on' : ''}" data-action="chip" data-k="${k}" data-v="${v}" aria-pressed="${!!on}" ${extra}>${label}</button>`;
   function compressImage(file, maxDim, q) {
     return new Promise((res, rej) => {
@@ -171,10 +209,13 @@
   }
   function consentScreen() {
     const existing = !!profile() || readings().length > 0;
-    return `<div class="consent-wrap"><div class="card consent-card" id="consentCard"><img src="icons/icon.svg" alt="" width="56" height="56"><h1>${t(existing ? 'y_cs_title_old' : 'y_cs_title')}</h1><p>${t('y_cs_intro')}</p>
+    return `<div class="consent-wrap"><div class="card consent-card" id="consentCard"><img src="icons/icon.svg" alt="" width="64" height="64"><h1>${t(existing ? 'y_cs_title_old' : 'y_cs_title')}</h1><p>${t('y_cs_intro')}</p>
       <ul class="cslist"><li>💾 ${t('y_cs_1')}</li><li>🔒 ${t('y_cs_2')}</li><li>✨ ${t('y_cs_3')}</li><li>🩺 ${t('y_cs_4')}</li><li>🗑️ ${t('y_cs_5')}</li></ul>
+      <details class="csd" id="csPriv"><summary>${ic('lock')} ${t('y_cs_priv_t')}</summary><p>${t('y_priv')}</p></details>
+      <details class="csd" id="csAI"><summary>${ic('sparkle')} ${t('y_rai_t')}</summary><ul><li>${t('y_rai_1')}</li><li>${t('y_rai_2')}</li><li>${t('y_rai_3')}</li><li>${t('y_rai_4')}</li></ul></details>
+      <details class="csd" id="csSafe"><summary>${ic('steth')} ${t('x_about_safe_t')}</summary><ul><li>${t('x_about_safe1')}</li><li>${t('x_about_safe2')}</li><li>${t('x_about_safe3')}</li></ul><p class="tiny muted">${t('x_about_src')}</p></details>
       <label class="consent"><input type="checkbox" id="cAgree"> <span>${t('y_cs_agree')}</span></label>
-      <button class="btn block big" data-action="consent-ok" id="consentOk">${t('y_cs_ok')}</button><p class="small center"><a href="#/about">${t('y_cs_more')}</a></p></div></div>`;
+      <button class="btn block big" data-action="consent-ok" id="consentOk">${t('y_cs_ok')}</button><p class="cs-close">NOLA HEALTH — ${t('y_closing')}</p></div></div>`;
   }
 
   /* ---------- ROUTES ---------- */
@@ -190,17 +231,29 @@
     return '';
   }
   ROUTES.home = function () {
-    const pr = profile(), next = nextReminder();
-    const cards = [
-      ['health', '❤️', 'x_c_health', 'x_c_health_d', 'cHealth'],
-      ['eat', '🥗', 'x_c_eat', 'x_c_eat_d', 'cEat'],
-      ['reminders', '⏰', 'x_c_rem', 'x_c_rem_d', 'cRem'],
-      ['scan', '📷', 'x_c_scan', 'x_c_scan_d', 'cScan'],
+    const pr = profile(), next = nextReminder(), rs = readings();
+    const last = ty => rs.filter(r => r.type === ty).reverse().sort((a, b) => b.ts - a.ts)[0];
+    const bp = last('bp'), gl = last('glucose'), wt = last('weight');
+    const td = rems().filter(x => remOnDay(x)), dn = td.filter(x => x.doneDay === today()).length;
+    const tm = meals().filter(m => dayKey(m.ts) === today()), kc = Math.round(tm.reduce((a, m) => a + ((m.totals || {}).kcal || 0), 0));
+    const when = ts => { const d = Math.floor((Date.now() - ts) / DAY); return d <= 0 ? t('y_today_l') : t('y_days_ago', { n: d }); };
+    const stat = (k, icon, label, val, sub, href, tone) => `<a class="hstat ${tone || ''} ${val ? '' : 'none'}" href="${href}" data-stat="${k}"><span class="hs-i">${ic(icon)}</span><span class="hs-l">${label}</span><b>${val || '—'}</b><small>${sub}</small></a>`;
+    const bpTone = bp ? (bp.sys >= 140 || bp.dia >= 90 ? 'warn' : bp.sys < 130 && bp.dia < 80 ? 'good' : '') : '';
+    const stats = [
+      stat('bp', 'pulse', t('x_t_bp'), bp ? bp.sys + '/' + bp.dia : '', bp ? 'mmHg · ' + when(bp.ts) : t('y_hs_add'), '#/health', bpTone),
+      stat('glucose', 'drop', t('x_t_glucose'), gl ? fmtG(gl.mg) : '', gl ? when(gl.ts) : t('y_hs_add'), '#/health'),
+      stat('weight', 'scale', t('x_t_weight'), wt ? wt.kg + ' kg' : (pr && pr.weight ? pr.weight + ' kg' : ''), wt ? when(wt.ts) : pr && pr.weight ? t('y_hs_profile') : t('y_hs_add'), '#/health'),
+      stat('rem', 'checkc', t('y_hs_rem'), td.length ? dn + '/' + td.length : '', td.length ? t('y_done_of', { n: dn, t: td.length }) : t('y_hs_norem'), '#/reminders', td.length && dn === td.length ? 'good' : ''),
+      stat('kcal', 'flame', t('y_hs_kcal'), tm.length ? '~' + kc : '', tm.length ? 'kcal · ' + t('y_hs_meals', { n: tm.length }) : t('y_hs_nomeal'), '#/scan'),
     ];
-    return `<section class="welcome"><h1 id="hello">${pr ? t('x_hello', { name: esc((pr.name || '').split(' ')[0]) }) : t('x_welcome')}</h1><p>${t('x_tagline')}</p></section>
-      ${pr ? '' : `<a class="setup" href="#/profile" id="setupBtn"><span>👋</span><div><b>${t('x_setup')}</b><small>${t('x_setup_d')}</small></div><span class="arr">›</span></a>`}
-      <div class="cards4" id="homeCards">${cards.map(([r, i, k, d, id]) => `<a class="fcard" href="#/${r}" id="${id}"><span class="fi" aria-hidden="true">${i}</span><span class="ft"><b>${t(k)}</b><small>${t(d)}</small>${hint(r, pr, next)}</span><span class="arr" aria-hidden="true">›</span></a>`).join('')}</div>
-      <p class="disc">🩺 ${t('x_disc')} <a href="tel:907">907</a></p>`;
+    const cards = [['health', 'heart', 'x_c_health', 'x_c_health_d', 'cHealth', 'c1'], ['eat', 'plate', 'x_c_eat', 'x_c_eat_d', 'cEat', 'c2'], ['reminders', 'bell', 'x_c_rem', 'x_c_rem_d', 'cRem', 'c3'], ['scan', 'camera', 'x_c_scan', 'x_c_scan_d', 'cScan', 'c4']];
+    const date = new Date().toLocaleDateString(L() === 'am' ? 'am-ET' : 'en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    return `<section class="hero" id="welcome"><div class="hero-t"><p class="hero-date">${esc(date)}</p><h1 id="hello">${pr ? t('x_hello', { name: esc((pr.name || '').split(' ')[0]) }) : t('x_welcome')}</h1><p class="hero-tag">${t(pr ? 'y_hero_sub' : 'x_tagline')}</p></div>
+        <a class="hero-av" href="#/about" aria-label="${t('x_nav_about')}">${avatarHtml('av', pr)}</a></section>
+      ${pr ? '' : `<a class="setup" href="#/profile" id="setupBtn"><span class="setup-i">${ic('user')}</span><div><b>${t('x_setup')}</b><small>${t('x_setup_d')}</small></div><span class="arr">${ic('chev')}</span></a>`}
+      <h2 class="sec-t">${t('y_hs_title')}</h2><div class="hstats" id="homeStats">${stats.join('')}</div>
+      <h2 class="sec-t">${t('y_hs_features')}</h2>
+      <div class="cards4" id="homeCards">${cards.map(([r, i, k, d, id, c]) => `<a class="fcard ${c}" href="#/${r}" id="${id}"><span class="fi" aria-hidden="true">${ic(i)}</span><span class="ft"><b>${t(k)}</b><small>${t(d)}</small>${hint(r, pr, next)}</span><span class="arr" aria-hidden="true">${ic('chev')}</span></a>`).join('')}</div>`;
   };
 
   /* My Health */
@@ -249,8 +302,8 @@
     const ty = S.rd.type, rs = readings().filter(r => r.type === ty && r.ts > Date.now() - 90 * DAY);
     const seg = `<div class="seg sm" id="chartType">${['bp', 'glucose', 'weight'].map(x => `<button type="button" class="${ty === x ? 'on' : ''}" data-action="rd-type" data-v="${x}">${t('x_t_' + x)}</button>`).join('')}</div>`;
     if (rs.length < 2) return `<div class="card" id="rdChart"><h2>📈 ${t('y_progress')}</h2>${seg}<p class="small muted">${t('y_chart_need')}</p>${changesHtml()}</div>`;
-    const series = ty === 'bp' ? [{ pts: rs.map(r => ({ x: r.ts, y: r.sys })), color: '#15803d' }, { pts: rs.map(r => ({ x: r.ts, y: r.dia })), color: '#65a30d' }]
-      : [{ pts: rs.map(r => ({ x: r.ts, y: ty === 'glucose' ? (unit() === 'mmol' ? r.mg / 18 : r.mg) : r.kg })), color: '#15803d' }];
+    const series = ty === 'bp' ? [{ pts: rs.map(r => ({ x: r.ts, y: r.sys })), color: '#0e7c86' }, { pts: rs.map(r => ({ x: r.ts, y: r.dia })), color: '#3b82c4' }]
+      : [{ pts: rs.map(r => ({ x: r.ts, y: ty === 'glucose' ? (unit() === 'mmol' ? r.mg / 18 : r.mg) : r.kg })), color: '#0e7c86' }];
     return `<div class="card" id="rdChart"><h2>📈 ${t('y_progress')} · ${t('x_90d')}</h2>${seg}${CH.line(series, { h: 160 })}${changesHtml()}<p class="tiny muted">${t('x_chart_note')}</p></div>`;
   }
   function historyCard() {
@@ -526,10 +579,27 @@
 
   /* Doctor */
   const chatList = () => DB.get('doctorChat', []) || [];
+  function msgKind(m) {
+    if (m.role !== 'bot') return null;
+    const x = m.text || '';
+    if (m.kind === 'summary') return ['summary', 'doc', 'y_sum_title'];
+    if (/^🚨/.test(x)) return ['flag', 'alert', 'rf_title'];
+    if (x.indexOf(t('y_dq_title')) > -1 || /questions to ask/i.test(x)) return ['questions', 'help', 'y_dq_title'];
+    if ((m.src || []).some(s => /KDIGO/.test(s)) || m.lab) return ['lab', 'flask', 'y_rc_lab'];
+    return null;
+  }
+  function msgHtml(m) {
+    const k = msgKind(m);
+    let text = m.text || '';
+    if (k) { const ls = text.split('\n'); if (ls[0] && ls[0].replace(/[🚨*\s]/g, '').indexOf(t(k[2]).replace(/\s/g, '')) > -1) text = ls.slice(1).join('\n'); }
+    const body = (m.img ? `<img src="${m.img}" alt="">` : '') + (m.role === 'bot' ? md(text) : `<p>${esc(m.text)}</p>`) + (m.src && m.src.length ? `<small class="src">${t('x_sources')}: ${m.src.map(esc).join(' · ')}</small>` : '');
+    if (m.role !== 'bot') return `<div class="mrow user"><div class="msg user">${body}</div></div>`;
+    return `<div class="mrow bot"><span class="bav" aria-hidden="true">${ic('steth')}</span><div class="msg bot${m.kind ? ' ' + m.kind : ''}${k ? ' report rc-' + k[0] : ''}">${k ? `<div class="rc-h">${ic(k[1])}<span>${t(k[2])}</span></div>` : ''}${body}${k && k[0] === 'flag' ? `<a class="btn red sm rc-call" href="tel:907">📞 ${t('rf_call')}</a>` : ''}</div></div>`;
+  }
   ROUTES.doctor = function () {
     const ai = AI.enabled(), c = AI.cfg(), list = chatList(), mem = memory();
-    return `<div class="pagehead"><h1>🩺 ${t('x_nav_doctor')}</h1>${list.length ? `<button class="iconbtn" data-action="chat-summary" id="sumBtn" aria-label="${t('y_summary')}" title="${t('y_summary')}">📝</button>` : ''}<button class="iconbtn" data-action="mem-panel" id="memBtn" aria-label="${t('y_memory')}" title="${t('y_memory')}" aria-expanded="${!!S.showMem}">🧠</button><button class="iconbtn" data-action="ai-gear" id="aiGear" aria-label="${t('x_ai_settings')}" aria-expanded="${S.showAi}">⚙️</button>${list.length ? `<button class="iconbtn" data-action="chat-clear" id="chatClear" aria-label="${t('x_clear')}">🗑️</button>` : ''}</div>
-      <p class="small ${ai ? 'ok-t' : 'muted'}" id="aiStatus">${ai ? '✨ ' + t('x_ai_on') : 'ℹ️ ' + t('x_ai_off')}</p>
+    return `<div class="doc-head"><span class="doc-av">${ic('steth')}</span><div class="grow"><h1>${t('x_nav_doctor')}</h1><p class="doc-st ${ai ? 'on' : ''}" id="aiStatus"><i class="dot"></i>${ai ? t('x_ai_on') : t('x_ai_off')}</p></div>
+        <div class="doc-tools">${list.length ? `<button class="iconbtn" data-action="chat-summary" id="sumBtn" aria-label="${t('y_summary')}" title="${t('y_summary')}">${ic('doc')}</button>` : ''}<button class="iconbtn ${S.showMem ? 'on' : ''}" data-action="mem-panel" id="memBtn" aria-label="${t('y_memory')}" title="${t('y_memory')}" aria-expanded="${!!S.showMem}">${ic('brain')}</button><button class="iconbtn ${S.showAi ? 'on' : ''}" data-action="ai-gear" id="aiGear" aria-label="${t('x_ai_settings')}" title="${t('x_ai_settings')}" aria-expanded="${S.showAi}">${ic('gear')}</button>${list.length ? `<button class="iconbtn" data-action="chat-clear" id="chatClear" aria-label="${t('x_clear')}" title="${t('x_clear')}">${ic('trash')}</button>` : ''}</div></div>
       ${S.showAi ? `<div class="card" id="aiPanel"><h2>⚙️ ${t('x_ai_settings')}</h2><p class="small">${t('x_ai_need')}</p>
         <label class="f" for="aiBase">${t('x_ai_base')}</label><input class="in" id="aiBase" value="${esc(c.base)}" placeholder="https://api.openai.com/v1" autocomplete="off">
         <label class="f" for="aiKey">${t('x_ai_key')}</label><input class="in" id="aiKey" type="password" value="${esc(c.key)}" placeholder="sk-…" autocomplete="off">
@@ -540,9 +610,9 @@
         <p class="small">${t('y_mem_d')}</p><p class="small ${mem.on ? 'ok-t' : 'muted'}" id="memState">${mem.on ? t('y_mem_on') : t('y_mem_off')}</p>
         ${mem.facts.length ? `<ul class="mlist" id="memList">${mem.facts.map(f => `<li data-fact="${f.id}"><div class="grow">${esc(f.text)}<small>${fdate(f.ts)}</small></div><button class="iconbtn" data-action="mem-del" data-id="${f.id}" aria-label="${t('x_delete')}">✕</button></li>`).join('')}</ul><button class="link" data-action="mem-clear" id="memClear">${t('y_mem_clear')}</button>` : `<p class="tiny muted">${t('y_mem_empty')}</p>`}</div>` : ''}
       <p class="disc">${t('x_doc_disc')} <a href="tel:907">907</a></p>
-      <div id="chat" class="chat" aria-live="polite">${list.length ? list.map(m => `<div class="msg ${m.role}${m.kind ? ' ' + m.kind : ''}">${m.img ? `<img src="${m.img}" alt="">` : ''}${m.role === 'bot' ? md(m.text) : `<p>${esc(m.text)}</p>`}${m.src && m.src.length ? `<small class="src">${t('x_sources')}: ${m.src.map(esc).join(' · ')}</small>` : ''}</div>`).join('') : `<div class="msg bot intro">${md(t('x_doc_hello'))}</div>`}${S.busy ? `<div class="msg bot typing" id="typing">${t('y_thinking')}</div>` : ''}</div>
+      <div id="chat" class="chat" aria-live="polite">${list.length ? list.map(msgHtml).join('') : `<div class="mrow bot"><span class="bav" aria-hidden="true">${ic('steth')}</span><div class="msg bot intro">${md(t('x_doc_hello'))}</div></div>`}${S.busy ? `<div class="mrow bot" id="typing"><span class="bav" aria-hidden="true">${ic('steth')}</span><div class="msg bot typing"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="tt">${t('y_thinking')}</span></div></div>` : ''}</div>
       <div class="chips" id="chatSug">${(list.length ? ['y_q_doc', 'y_q_term'] : ['x_q1', 'x_q2', 'x_q3', 'x_q4', 'y_q_side', 'y_q_term']).map(k => `<button type="button" class="chip sm" data-action="ask" data-q="${esc(t(k))}">${t(k)}</button>`).join('')}</div>
-      <form class="chatbar" id="chatForm" autocomplete="off"><label class="iconbtn lab" title="${t('x_lab_photo')}"><input type="file" accept="image/*" id="labFile" hidden aria-label="${t('x_lab_photo')}">📄</label><textarea class="in" id="chatIn" rows="1" placeholder="${t('x_chat_ph')}" maxlength="2000" aria-label="${t('x_chat_ph')}"></textarea><button class="btn" id="chatSend" type="submit" aria-label="${t('x_send')}">➤</button></form>`;
+      <form class="chatbar" id="chatForm" autocomplete="off"><label class="iconbtn lab" title="${t('x_lab_photo')}"><input type="file" accept="image/*" id="labFile" hidden aria-label="${t('x_lab_photo')}">${ic('clip')}</label><textarea class="in" id="chatIn" rows="1" placeholder="${t('x_chat_ph')}" maxlength="2000" aria-label="${t('x_chat_ph')}"></textarea><button class="btn" id="chatSend" type="submit" aria-label="${t('x_send')}">${ic('send')}</button></form>`;
   };
   const SCOPE = /systolic|diastolic|hypertension|prediabet|side.?effect|ጎንዮሽ|ማዞር|ተቅማጥ|ሆድ|ጨጓራ|ወገብ|ጀርባ|ደከመኝ|ማለት|health|sick|\bill\b|pain|ache|hurt|fever|cough|cold|flu|dizz|tired|fatigue|weak|sleep|stress|anxi|depress|mood|headache|migraine|nause|vomit|diarr|constipat|stomach|bloat|heartburn|ulcer|rash|skin|itch|swell|breath|asthma|chest|heart|blood|pressure|\bbp\b|sugar|glucose|diabet|insulin|cholesterol|\bldl\b|\bhdl\b|triglycer|kidney|liver|anemi|iron|vitamin|pregnan|period|menstru|weight|\bbmi\b|obes|diet|\beat|food|meal|drink|water|fruit|vegetable|injera|shiro|teff|misir|coffee|buna|\btea\b|alcohol|beer|\btej\b|salt|\bfat\b|\boil\b|protein|carb|fiber|calori|nutri|fasting|tsom|breakfast|lunch|dinner|snack|medic|medicine|\bdrug|pill|tablet|\bdose|pharmac|doctor|clinic|hospital|nurse|\btest|\blab\b|result|report|hba1c|\ba1c\b|creatinine|egfr|hemoglobin|haemoglobin|symptom|infection|allerg|exercise|\bwalk|activity|smok|ጤና|ህመም|ያመኛል|ራስ|ትኩሳት|ሳል|ድካም|እንቅልፍ|ግፊት|ስኳር|ደም|ልብ|ኩላሊት|ጉበት|ክብደት|ምግብ|መብላት|ልብላ|እንጀራ|ሽሮ|ውሃ|ቡና|ሻይ|አልኮል|ጨው|ዘይት|ቅቤ|ጾም|መድሃኒት|መድኃኒት|ኪኒን|ሐኪም|ሆስፒታል|ምርመራ|ውጤት|ላብራቶሪ|እርግዝና|ቁርስ|ምሳ|እራት|አለርጂ|እንቅስቃሴ/i;
   const OFFTOPIC = /football|soccer|\bmatch\b|movie|film|song|lyrics|music|politic|election|president|bitcoin|crypto|stock market|weather|\bjoke|programming|\bcode\b|javascript|python|homework|capital of|who won|celebrity|ኳስ|ፊልም|ዘፈን|ፖለቲካ|ምርጫ/i;
@@ -626,7 +696,7 @@ GOALS: ${(pr.goals || []).join(', ') || 'none set'}.`;
       reply = '⚠️ ' + t('x_ai_failed', { e: String(e.message || e).slice(0, 80) }) + '\n' + a.text; src = a.src || [];
     }
     if (learned.length) reply += '\n🧠 ' + t('y_mem_saved', { f: learned.join('; ') });
-    const l2 = chatList(); l2.push({ role: 'bot', text: reply, src, ts: Date.now() }); DB.set('doctorChat', l2.slice(-60));
+    const l2 = chatList(); l2.push({ role: 'bot', text: reply, src, ts: Date.now(), lab: !!img && !flag }); DB.set('doctorChat', l2.slice(-60));
     S.busy = false; if (location.hash.startsWith('#/doctor')) { rerender(); scrollChat(); }
   }
   async function chatSummary() {
@@ -644,22 +714,34 @@ GOALS: ${(pr.goals || []).join(', ') || 'none set'}.`;
   }
   function scrollChat() { setTimeout(() => { const c = $('#chat'); if (c && c.lastElementChild) c.lastElementChild.scrollIntoView({ block: 'end' }); }, 30); }
 
-  /* About */
+  /* About → my profile */
   ROUTES.about = function () {
-    const C = (window.NOLA_CONFIG && window.NOLA_CONFIG.contact) || {}, has = C.email || C.phone || C.website;
-    const sec = (id, ic, k, body) => `<section class="asec" id="${id}"><h2>${ic} ${t(k)}</h2>${body}</section>`;
-    return `<div class="pagehead"><h1>ℹ️ ${t('x_nav_about')}</h1></div>
-      <div class="card about-hero"><img src="icons/icon.svg" alt="" width="64" height="64"><div><h2>NOLA HEALTH</h2><p>${t('x_tagline')}</p></div></div>
-      <div class="card" id="aboutText">
-        ${sec('abIntro', '👋', 'x_about_what_t', `<p>${t('x_about_what')}</p>`)}
-        ${sec('abMission', '🎯', 'x_about_mission_t', `<p>${t('x_about_mission')}</p>`)}
-        ${sec('abVision', '🌍', 'y_vision_t', `<p>${t('y_vision')}</p>`)}
-        ${sec('abWhy', '🇪🇹', 'y_why_t', `<p>${t('y_why')}</p>`)}
-        ${sec('abPriv', '🔒', 'x_about_priv_t', `<p>${t('y_priv')}</p>`)}
-        ${sec('abAI', '🤖', 'y_rai_t', `<ul><li>${t('y_rai_1')}</li><li>${t('y_rai_2')}</li><li>${t('y_rai_3')}</li><li>${t('y_rai_4')}</li></ul>`)}
-        ${sec('abSafe', '🩺', 'x_about_safe_t', `<ul><li>${t('x_about_safe1')}</li><li>${t('x_about_safe2')}</li><li>${t('x_about_safe3')}</li></ul>`)}
-        ${sec('abContact', '✉️', 'y_contact_t', has ? `<ul>${C.email ? `<li>📧 <a href="mailto:${esc(C.email)}">${esc(C.email)}</a></li>` : ''}${C.phone ? `<li>📞 <a href="tel:${esc(C.phone)}">${esc(C.phone)}</a></li>` : ''}${C.website ? `<li>🌐 <a href="${esc(C.website)}" rel="noopener">${esc(C.website)}</a></li>` : ''}</ul>` : `<p class="placeholder" id="contactPh">${t('y_contact_ph')}</p>`)}
-        <p class="tiny muted">${t('x_about_src')} · v${VERSION}</p></div>`;
+    const pr = profile(), photo = DB.get('avatar', null);
+    const head = `<div class="pagehead"><h1>${t('y_pf_title')}</h1></div>`;
+    const photoCtl = `<div class="pf-photo"><label class="btn sm ghost" id="avatarBtn">${ic('camera')}<input type="file" accept="image/*" id="avatarIn" hidden aria-label="${t(photo ? 'y_pf_photo_change' : 'y_pf_photo_add')}">${t(photo ? 'y_pf_photo_change' : 'y_pf_photo_add')}</label>${photo ? `<button class="btn sm ghost danger-t" data-action="avatar-del" id="avatarDel">${ic('trash')}${t('y_pf_photo_del')}</button>` : ''}</div>`;
+    if (!pr) return head + `<div class="card pf-hero" id="profileCard"><div class="pf-avwrap">${avatarHtml('pf-av', pr)}</div><h2 id="profName">${t('x_welcome')}</h2>${photoCtl}<div class="empty" id="profEmpty"><p>${t('y_pf_none')}</p><a class="btn" href="#/profile" id="startProfile">${t('x_setup')}</a></div><p class="tiny muted">${ic('lock')} ${t('y_pf_photo_note')}</p></div>`;
+    const age = E.age(pr), bmi = E.bmi(pr), conds = (pr.conditions || []).filter(c => c !== 'none');
+    const fa = (pr.allergies || []).map(a => t('a_' + a)).concat(pr.allergyOther ? [pr.allergyOther] : []);
+    const ma = (pr.medAllergies || []).map(a => t('ma_' + a)).concat(pr.medAllergyOther ? [pr.medAllergyOther] : []);
+    const meds = pr.noMeds ? [] : (pr.medList || []);
+    const row = (icon, k, v) => `<div class="pf-row"><span class="pf-i">${ic(icon)}</span><span class="pf-k">${k}</span><b class="pf-v">${v}</b></div>`;
+    const tags = (arr, empty) => arr.length ? `<div class="tags">${arr.map(x => `<span class="tag">${x}</span>`).join('')}</div>` : `<p class="muted small">${empty}</p>`;
+    return head + `<div class="card pf-hero" id="profileCard"><div class="pf-avwrap">${avatarHtml('pf-av', pr)}</div>
+        <h2 id="profName">${esc(pr.name || '')}</h2><p class="pf-sub">${[age ? t('x_age') + ' ' + age : '', pr.gender ? t('g_' + pr.gender) : ''].filter(Boolean).join(' · ')}</p>
+        <p class="pf-badge ${DB.encrypted ? 'on' : ''}" id="pinBadge">${ic(DB.encrypted ? 'shield' : 'lock')} ${t(DB.encrypted ? 'y_pf_pin' : 'y_pf_nopin')}</p>${photoCtl}
+        <p class="tiny muted">${t('y_pf_photo_note')}</p></div>
+      <div class="card" id="pfPersonal"><div class="row between"><h2>${t('x_personal')}</h2><a class="btn sm ghost" href="#/profile" id="profEdit">${ic('edit')}${t('y_pf_edit')}</a></div>
+        ${row('user', t('x_name'), esc(pr.name || '—'))}${row('cal', t('x_age'), age || '—')}${row('user', t('x_sex'), pr.gender ? t('g_' + pr.gender) : '—')}
+        ${row('ruler', t('x_height'), pr.height ? pr.height + ' cm' : '—')}${row('scale', t('x_weight'), pr.weight ? pr.weight + ' kg' : '—')}${row('pulse', 'BMI', bmi ? bmi + ' · ' + t('bmi_' + E.bmiCat(bmi)) : '—')}
+        ${row('globe', t('y_pf_lang'), L() === 'am' ? 'አማርኛ' : 'English')}${row('drop', t('x_glucose_unit'), unit() === 'mmol' ? 'mmol/L' : 'mg/dL')}${pr.created ? row('cal', t('y_pf_since'), new Date(pr.created).toLocaleDateString(L() === 'am' ? 'am-ET' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })) : ''}</div>
+      <div class="card" id="pfHealth"><h2>${t('y_pf_health')}</h2>
+        <h3>${t('x_conditions')}</h3>${tags(conds.map(c => esc(condName(c))), t('x_no_conditions'))}
+        <h3>${t('f_allergies')}</h3>${tags(fa.map(esc), t('x_none'))}
+        <h3>${t('f_med_allergies')}</h3>${tags(ma.map(esc), t('x_none'))}
+        <h3>${t('x_meds')}</h3>${tags(meds.map(m => esc(medName(m)) + (m.dose ? ' <small>' + esc(m.dose) + '</small>' : '')), pr.noMeds ? t('md_no') : t('x_no_meds'))}
+        <h3>${t('y_my_goals')}</h3>${tags((pr.goals || []).map(g => esc(goalName(g))), t('y_no_goals'))}
+        <h3>${t('x_diet')}</h3>${tags((pr.restrictions || []).map(r => t('r_' + r)), t('x_none'))}
+        <a class="btn block ghost" href="#/health" id="profHealth">${ic('heart')}${t('x_c_health')}</a></div>`;
   };
 
   /* Lock screen (secure login) */
@@ -672,16 +754,25 @@ GOALS: ${(pr.goals || []).join(', ') || 'none set'}.`;
 
   /* ---------- router ---------- */
   const TITLES = { home: 'x_nav_home', health: 'x_c_health', profile: 'x_c_health', eat: 'x_c_eat', reminders: 'x_c_rem', scan: 'x_c_scan', doctor: 'x_nav_doctor', about: 'x_nav_about' };
+  /* swap leading emoji in headings for the SVG icon set */
+  const EMO = { '❤️': 'heart', '🩺': 'steth', '💊': 'pill', '🎯': 'target', '📈': 'pulse', '📄': 'doc', '🗂️': 'doc', '🔒': 'lock', '🗄️': 'shield', '🗓️': 'cal', '📅': 'cal', '⏳': 'alert', '👤': 'user', '⚠️': 'alert', '🍽️': 'plate', '📊': 'pulse', '💡': 'sparkle', '🔍': 'camera', '💚': 'heart', '💬': 'sparkle', '⚖️': 'scale', '🧺': 'plate', '🔁': 'sparkle', '⏰': 'bell', '🔔': 'bell', '🧠': 'brain', '⚙️': 'gear', '✨': 'sparkle', '🥗': 'plate', '📷': 'camera', 'ℹ️': 'user', '💰': 'flame', '🍳': 'plate', '＋': 'plus', '✎': 'edit', '🌅': 'sparkle', '🌙': 'sparkle', '🧾': 'doc' };
+  function decorate(root) {
+    root.querySelectorAll('h1, h2, h3').forEach(h => {
+      const n = h.firstChild; if (!n || n.nodeType !== 3) return; const m = n.nodeValue.match(/^\s*(\S+)\s+/); if (!m || !EMO[m[1]]) return;
+      n.nodeValue = n.nodeValue.slice(m[0].length); const s = document.createElement('span'); s.className = 'hic'; s.innerHTML = ic(EMO[m[1]]); h.insertBefore(s, h.firstChild);
+    });
+  }
   function route() {
     const raw = (location.hash || '#/home').slice(2), name = raw.split('?')[0] || 'home';
     const view = $('#view'), nav = $('#mainnav');
     if (DB.locked) { document.body.classList.add('locked'); nav.hidden = true; view.innerHTML = lockScreen(); setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 50); return; }
     document.body.classList.remove('locked'); nav.hidden = false;
     if (!ROUTES[name]) { location.replace('#/home'); return; }
-    if (!hasConsent() && name !== 'about') { view.innerHTML = consentScreen(); document.body.dataset.route = 'consent'; $$('#mainnav a').forEach(a => a.classList.remove('on')); S.lastRoute = 'consent'; document.title = 'NOLA HEALTH'; return; }
+    if (!hasConsent()) { view.innerHTML = consentScreen(); document.body.dataset.route = 'consent'; $$('#mainnav a').forEach(a => a.classList.remove('on')); S.lastRoute = 'consent'; document.title = 'NOLA HEALTH'; return; }
     if (name === 'profile' && S.lastRoute !== 'profile') edInit();
     if (name !== 'scan' && S.lastRoute === 'scan' && S.scan.result) S.scan = newScan();
-    view.innerHTML = ROUTES[name]() + `<footer class="closing" id="closing"><b>NOLA HEALTH</b> — ${t('y_closing')}</footer>`;
+    view.innerHTML = ROUTES[name]() + `<footer class="closing" id="closing"><p class="fdisc" id="footDisc">${ic('shield')} ${t('y_foot')} <a href="tel:907">907</a></p><p><b>NOLA HEALTH</b> — ${t('y_closing')} <span class="ver">v${VERSION}</span></p></footer>`;
+    decorate(view);
     document.body.dataset.route = name;
     $$('#mainnav a').forEach(a => { const on = a.dataset.nav === SECTION[name]; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
     if (S.lastRoute !== name) { window.scrollTo(0, 0); view.focus({ preventScroll: true }); }
@@ -796,6 +887,7 @@ GOALS: ${(pr.goals || []).join(', ') || 'none set'}.`;
     'ai-save'(el, quiet) { saveSettings({ aiBase: $('#aiBase').value.trim(), aiKey: $('#aiKey').value.trim(), aiModel: $('#aiModel').value.trim() }); if (quiet !== true) { toast('✓ ' + t('x_saved')); rerender(); } },
     async 'ai-test'() { A['ai-save'](null, true); const out = $('#aiTestOut'); if (!AI.enabled()) return toast(t('x_ai_fill')); out.textContent = '…'; try { await AI.chat([{ role: 'user', content: 'Reply with just: OK' }], { max_tokens: 5, timeout: 20000 }); out.textContent = '✓ ' + t('x_ai_ok'); } catch (e) { out.textContent = '✕ ' + t('x_ai_failed', { e: String(e.message || e).slice(0, 80) }); } },
     'ai-remove'() { saveSettings({ aiKey: '' }); toast(t('x_ai_removed')); rerender(); },
+    'avatar-del'() { if (!confirm(t('y_pf_del_q'))) return; DB.set('avatar', null); toast('✓ ' + t('y_pf_removed')); rerender(); },
     'chat-clear'() { if (!confirm(t('x_clear_q'))) return; DB.set('doctorChat', []); rerender(); },
     ask(el) { ask(el.dataset.q); },
     /* v5 actions */
@@ -880,6 +972,13 @@ GOALS: ${(pr.goals || []).join(', ') || 'none set'}.`;
     if (el.dataset.change === 'rem-check' || el.dataset.change === 'goal-check') { setDone(el.dataset.id, el.checked); if (el.checked) toast('✓ ' + t('x_well_done')); rerender(); }
     if (el.dataset.change === 'mem-on') { const m = memory(); m.on = el.checked; DB.set('memory', m); toast(m.on ? '🧠 ' + t('y_mem_on_t') : t('y_mem_off_t')); rerender(); }
     if (el.id === 'remGoal') S.rem.goal = el.value;
+    if (el.id === 'avatarIn' && el.files[0]) {
+      const f = el.files[0];
+      if (!/^image\//.test(f.type)) { toast(t('y_rep_err')); el.value = ''; return; }
+      loader(true, t('x_preparing'));
+      try { DB.set('avatar', await compressImage(f, 512, 0.85)); toast('✓ ' + t('y_pf_saved')); } catch (e) { toast(t('y_rep_err')); }
+      loader(false); el.value = ''; rerender();
+    }
     if (el.id === 'repFile' && el.files[0]) {
       const f = el.files[0], title = (($('#repTitle') || {}).value || '').trim() || f.name.replace(/\.[a-z0-9]+$/i, '').slice(0, 60);
       loader(true, t('x_preparing'));
