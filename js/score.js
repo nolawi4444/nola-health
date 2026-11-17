@@ -17,7 +17,7 @@
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   function weights(pr, T) {
     const E = window.NolaEngine, has = c => E.has(pr, c), dm = E.isDiabetic(pr);
-    const naWatch = has('htn') || has('heart') || has('kidney') || (pr.restrictions || []).includes('lowsalt');
+    const naWatch = has('htn') || has('heart') || (pr.restrictions || []).includes('lowsalt');
     const sfWatch = has('chol') || has('heart');
     const wWatch = has('obesity') || T.loss;
     return {
@@ -27,7 +27,7 @@
       sugar: dm ? 22 : 14,
       calories: wWatch ? 18 : 8,
       fiber: dm || sfWatch ? 8 : 5,
-      potassium: naWatch ? 4 : 0,
+      potassium: naWatch && !has('kidney') ? 4 : 0,
       dm, naWatch, sfWatch, wWatch,
     };
   }

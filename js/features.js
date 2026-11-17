@@ -28,8 +28,8 @@
     ['journey', '🌱', 'hub_journey', 'hub_journey_d'], ['memory', '🗂️', 'hub_remember', 'hub_remember_d'], ['privacy', '🔒', 'hub_privacy', 'hub_privacy_d'],
   ];
   HUB.push(['health', '❤️', 'h3_health', 'h3_health_d'], ['eat', '🍲', 'h3_eat', 'h3_eat_d'], ['today', '📋', 'h3_plan', 'h3_plan_d'], ['challenges', '🎯', 'ch_title', 'ch_hub_d'],
-    ['reminders', '⏰', 'rem_title', 'rem_hub_d'], ['labs', '🧪', 'lab_title', 'lab_hub_d'], ['diary', '📖', 'h3_food_history', 'h3_food_history_d'], ['settings', '⚙️', 'me_settings', 'set_hub_d']);
-  const HUB_GROUPS = [['hg_daily', ['today', 'eat', 'challenges', 'reminders']], ['hg_health', ['health', 'glucose', 'labs', 'clinician', 'journey', 'diary']],
+    ['reminders', '⏰', 'rem_title', 'rem_hub_d'], ['labs', '🧪', 'lab_title', 'lab_hub_d'], ['plan', '🧭', 'pg_title', 'pg_hub_d'], ['meds', '💊', 'md_title', 'md_hub_d'], ['diary', '📖', 'h3_food_history', 'h3_food_history_d'], ['settings', '⚙️', 'me_settings', 'set_hub_d']);
+  const HUB_GROUPS = [['hg_daily', ['plan', 'today', 'eat', 'challenges', 'reminders']], ['hg_health', ['health', 'meds', 'glucose', 'labs', 'clinician', 'journey', 'diary']],
     ['hg_food', ['coach', 'insights', 'restaurant', 'planner', 'shopping', 'academy']], ['hg_people', ['family', 'memory', 'privacy', 'settings']]];
   function hubGrid() {
     const by = Object.fromEntries(HUB.map(h => [h[0], h]));

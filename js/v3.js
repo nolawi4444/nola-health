@@ -246,11 +246,14 @@
       const dish = pd && pd.meals[slot] ? PL.dish(pd.meals[slot].dish) : ((rankDishes(slot, pr, 1)[0] || {}).d);
       out.push({ k: 'meal_' + slot, i: { breakfast: '🌅', lunch: '🍛', dinner: '🌙' }[slot], txt: t('meal_' + slot) + (dish ? ': ' + tr(dish.name) : ''), auto: ms.some(m => m.meal === slot), sub: dish ? (pd ? t('td_from_plan') : t('td_suggested')) : '', act: dish ? `<button class="btn sm soft" data-action="eat-log" data-id="${dish.id}" data-slot="${slot}">📸 ${t('td_log')}</button>` : '' });
     });
+    if (window.NolaV31) out.push(...window.NolaV31.goalItems(pr, today()));
+    else {
     if (E.has(pr, 'htn') || E.has(pr, 'heart') || N.readings().some(r => r.type === 'bp')) out.push({ k: 'bp', i: '❤️', txt: t('td_bp'), auto: readingToday('bp'), act: `<button class="btn sm soft" data-action="add-reading" data-type="bp">+ ${t('td_add')}</button>` });
     if (E.isDiabetic(pr)) out.push({ k: 'glucose', i: '🩸', txt: t('td_glucose'), auto: readingToday('glucose'), act: `<button class="btn sm soft" data-action="add-reading" data-type="glucose">+ ${t('td_add')}</button>` });
     out.push({ k: 'veg', i: '🥬', txt: t('td_veg'), auto: foodsToday().some(f => f.cat === 'veg') });
     out.push({ k: 'water', i: '💧', txt: t('td_water'), sub: t('td_water_d') });
     out.push({ k: 'walk', i: '🚶', txt: t('td_walk'), sub: t('td_walk_d') });
+    }
     todayRems().forEach(r => out.push({ k: 'rem_' + r.id, i: RI[r.kind] || '⏰', txt: remTitle(r), sub: r.time + (r.forWho ? ' · ' + t('rem_for', { n: r.forWho }) : ''), auto: r.doneDay === today() }));
     return out;
   }
@@ -314,7 +317,7 @@
     const sb = bp && statusBP(bp), sg = g && statusG(g), pr = N.profile(), b = E.bmi(pr);
     const tile = (ty, i, val, st, extra) => `<div class="card htile" data-h="${ty}"><div class="row"><span class="hi">${i}</span><div class="grow"><b>${t('log_' + ty)}</b><div class="hv">${val}</div>${st || ''}${extra || ''}</div></div>
       <div class="row" style="gap:8px;margin-top:10px"><button class="btn grow" data-action="add-reading" data-type="${ty}" id="hAdd_${ty}">+ ${t('h3_add')}</button><button class="btn ghost" data-action="rd-open" data-v="${ty}">📈 ${t('h3_history')}</button></div></div>`;
-    const tools = [['glucose', '🍽️', 'hub_glucose'], ['labs', '🧪', 'lab_title'], ['report', '📄', 'rep_title'], ['diary', '📖', 'h3_food_history'], ['insights', '🧠', 'hub_memory_food'], ['journey', '🌱', 'hub_journey'],
+    const tools = [['meds', '💊', 'md_title'], ['plan', '🧭', 'pg_title'], ['glucose', '🍽️', 'hub_glucose'], ['labs', '🧪', 'lab_title'], ['report', '📄', 'rep_title'], ['diary', '📖', 'h3_food_history'], ['insights', '🧠', 'hub_memory_food'], ['journey', '🌱', 'hub_journey'],
       ['reminders', '⏰', 'rem_title'], ['challenges', '🎯', 'ch_title'], ['clinician', '🩺', 'hub_clinician'], ['family', '👨‍👩‍👧', 'hub_family'], ['academy', '🎓', 'hub_academy'], ['learn', '🛡️', 'me_learn']];
     return `<h1>❤️ ${t('h3_health')}</h1><p class="small muted">${t('h3_health_intro')}</p>
       ${tile('bp', '❤️', bp ? `${bp.sys}/${bp.dia} <span class="small muted">mmHg · ${when(bp)}</span>` : '—', sb ? `<span class="pill ${sb.cls}">${t('bpcat_' + sb.c)}</span>` : `<span class="tiny muted">${t('h3_none_yet')}</span>`)}

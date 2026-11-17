@@ -30,7 +30,7 @@
     ['bp', /blood pressure|hypertension|\bbp\b|ግፊ/i],
     ['dinner', /dinner|lunch|eat today|what (should|can) i eat|meal plan|ምሳ|እራት|ምን ልብላ/i],
   ];
-  function detect(q) { for (const [k, re] of TOPICS) if (re.test(q)) return k; return 'default'; }
+  function detect(q) { const MD = window.NolaMeds; if (MD && MD.find(q) && !/^(what|how much|is|are)?.{0,20}(blood pressure|blood sugar|glucose)\b/i.test(q)) return 'meds'; for (const [k, re] of TOPICS) if (re.test(q)) return k; return 'default'; }
 
   function answer(q, pr, lang) {
     const c = ctx(pr), am = lang === 'am', L = (en, a) => (am ? a : en);
@@ -38,10 +38,15 @@
     const add = (en, a) => lines.push(L(en, a));
     switch (detect(q)) {
       case 'meds':
-        add('I can’t advise starting, stopping or changing any medication or dose — please ask your doctor or pharmacist.', 'መድሃኒት ስለመጀመር፣ ስለማቆም ወይም መጠን ስለመቀየር ምክር መስጠት አልችልም — እባክዎ ሐኪምዎን ወይም ፋርማሲስትዎን ይጠይቁ።');
+      { const change = /\b(stop|quit|start|change|switch|increase|decrease|reduce|double|skip|more|less|dose|dosage|how much|how many)\b|አቁ|ልቀንስ|ልጨምር|ልቀይር|መጠን/i.test(q);
+        if (change) add('I can’t advise starting, stopping or changing any medication or dose — please ask your doctor or pharmacist.', 'መድሃኒት ስለመጀመር፣ ስለማቆም ወይም መጠን ስለመቀየር ምክር መስጠት አልችልም — እባክዎ ሐኪምዎን ወይም ፋርማሲስትዎን ይጠይቁ።');
+        else add('Here is some general information about medicines (not medical advice):', 'ስለ መድሃኒቶች አጠቃላይ መረጃ (የህክምና ምክር አይደለም)፡');
+        const ml = window.NolaV31 ? window.NolaV31.medLines(q, pr) : [];
+        ml.forEach(l => lines.push(l));
+        if (!change) lines.push(t('md_never')); }
         add('What I *can* do: help you eat consistently so your medicine works predictably — similar carb amounts at similar times each day.', 'ማድረግ የምችለው፡ መድሃኒትዎ በትክክል እንዲሰራ በየቀኑ ተመሳሳይ ሰዓት ተመሳሳይ መጠን ካርቦሃይድሬት እንዲመገቡ ማገዝ።');
         if (c.dm) add('If you take insulin or sulfonylureas (e.g. glibenclamide), don’t skip meals and carry fast sugar for lows.', 'ኢንሱሊን ወይም ግሊበንክላማይድ የሚወስዱ ከሆነ ምግብ አይዝለሉ፤ ለስኳር መውረድ ፈጣን ስኳር ይያዙ።');
-        src = ['ADA Standards of Care 2025']; break;
+        src = ['ADA Standards of Care 2025', 'WHO Model List of Essential Medicines']; break;
       case 'breakfast':
         add('**Good breakfast ideas for you:**', '**ለእርስዎ ጥሩ የቁርስ ሀሳቦች፡**');
         add('• Ful with less oil + 1 egg + tomato/onion, with ½ kita or ½ teff injera', '• ፉል በትንሽ ዘይት + 1 እንቁላል + ቲማቲም/ሽንኩርት፣ ከግማሽ ቂጣ ወይም ግማሽ የጤፍ እንጀራ ጋር');
@@ -78,7 +83,7 @@
         add('• Great choices: guava (zeytuna), orange, apple, papaya, avocado, berries.', '• ጥሩ ምርጫዎች፡ ዘይቱና፣ ብርቱካን፣ ፖም፣ ፓፓያ፣ አቮካዶ።');
         if (c.dm) add('• One serving = 1 medium orange/apple, 1 small banana, or 1 cup papaya/mango (~15–25 g carbs). Spread fruit through the day, and eat it with nuts or ayib.', '• አንድ መጠን = 1 መካከለኛ ብርቱካን/ፖም፣ 1 ትንሽ ሙዝ፣ ወይም 1 ኩባያ ፓፓያ/ማንጎ (~15–25 ግ)። በቀኑ ያከፋፍሉ፣ ከለውዝ ወይም አይብ ጋር ይመገቡ።');
         add('• Prefer whole fruit over juice — juice-house drinks often have added sugar.', '• ከጭማቂ ይልቅ ሙሉ ፍራፍሬ ይምረጡ — የጭማቂ ቤት መጠጦች ብዙ ጊዜ ስኳር ይጨመርባቸዋል።');
-        if (c.has('kidney')) add('• With kidney disease, potassium may need limiting — ask your renal dietitian which fruits suit you.', '• የኩላሊት ህመም ካለ ፖታሲየም መገደብ ሊያስፈልግ ይችላል — የአመጋገብ ባለሙያዎን ይጠይቁ።');
+        if (c.has('kidney')) add('• With kidney disease, whether you need to watch potassium depends on your kidney function and blood tests — ask your renal dietitian which fruits suit you (KDIGO 2024).', '• የኩላሊት ህመም ካለ ፖታሲየምን መከታተል ያስፈልግ እንደሆነ በኩላሊትዎ ተግባርና በደም ምርመራዎ ይወሰናል — የትኞቹ ፍራፍሬዎች እንደሚስማሙዎ የኩላሊት አመጋገብ ባለሙያዎን ይጠይቁ (KDIGO 2024)።');
         src = ['ADA', 'WHO 400 g fruit & veg/day']; break;
       case 'soda':
         add('**Better drinks than soda:**', '**ከለስላሳ የተሻሉ መጠጦች፡**');

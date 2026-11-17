@@ -1,7 +1,7 @@
 /* NOLA HEALTH engine: targets, meal nutrition, personalised analysis, red flags. Pure functions. */
 (function () {
   const NUTS = ['kcal', 'p', 'c', 's', 'as', 'f', 'sf', 'fb', 'na', 'k'];
-  const DM = ['t1d', 't2d', 'pre', 'gdm'];
+  const DM = ['t1d', 't2d', 'dm_unknown', 'pre', 'gdm'];
   const has = (pr, c) => !!(pr && pr.conditions && pr.conditions.includes(c));
   const hasAny = (pr, arr) => arr.some(c => has(pr, c));
   const isDiabetic = pr => hasAny(pr, DM);
@@ -22,14 +22,14 @@
     let kcal = bmr * af;
     const goals = pr.goals || [];
     const b = bmi(pr);
-    const loss = goals.includes('lose') || (b >= 27 && !goals.includes('maintain') && !goals.includes('gain'));
+    const loss = goals.includes('lose') || (has(pr, 'obesity') && !goals.includes('maintain') && !goals.includes('gain')); // v3.1: never inferred from BMI alone
     const minK = pr.gender === 'male' ? 1500 : pr.gender === 'female' ? 1200 : 1350;
     if (loss) kcal = Math.max(minK, kcal - 500);
     else if (goals.includes('gain')) kcal += 300;
     kcal = Math.round(kcal / 50) * 50;
     const dm = isDiabetic(pr);
     const carbPct = dm ? 40 : has(pr, 'obesity') || loss ? 45 : 50;
-    const lowNa = hasAny(pr, ['htn', 'heart', 'kidney']) || (pr.restrictions || []).includes('lowsalt');
+    const lowNa = hasAny(pr, ['htn', 'heart']) || (pr.restrictions || []).includes('lowsalt');
     const sfPct = hasAny(pr, ['chol', 'heart']) ? 6 : 10;
     const asCap = Math.min(dm ? 25 : pr.gender === 'male' ? 36 : pr.gender === 'female' ? 25 : 30, Math.round(kcal * 0.1 / 4));
     return {
@@ -116,14 +116,14 @@
     if (dm && foods.some(x => x.f && ['chechebsa', 'genfo'].includes(x.f.id))) tips.add(t('tip_honey'));
 
     // Sodium
-    const naWatch = hasAny(pr, ['htn', 'heart', 'kidney']) || (pr.restrictions || []).includes('lowsalt');
+    const naWatch = hasAny(pr, ['htn', 'heart']) || (pr.restrictions || []).includes('lowsalt');
     let nl = level(tot.na, T.na);
     if (!naWatch) nl = tot.na > T.na * 0.6 ? 1 : 0;
     if (naWatch || nl) {
       why.push({ lvl: nl, text: t(['a_na_ok', 'a_na_mod', 'a_na_high'][nl], { na: r(tot.na), t: T.na, pct: pct(tot.na, T.na) }) });
       bump(nl);
       if (nl && foods.some(x => !x.f || x.f.salt)) tips.add(t('tip_salt'));
-      if (naWatch && tot.k >= 900) why.push({ lvl: -1, good: true, text: t('a_k_good', { k: r(tot.k) }) });
+      if (naWatch && tot.k >= 900 && !has(pr, 'kidney')) why.push({ lvl: -1, good: true, text: t('a_k_good', { k: r(tot.k) }) });
     }
     // Saturated fat
     const sfWatch = hasAny(pr, ['chol', 'heart']);
@@ -175,6 +175,27 @@
     if ((rs.includes('fasting') || rs.includes('vegan')) && foods.some(x => x.f && !x.f.tags.includes('fasting') && !x.f.tags.includes('vegan'))) why.push({ lvl: -1, text: t('a_fasting') });
     if (foods.some(x => x.f && x.f.tags.includes('raw') && x.it.method !== 'yebesele')) why.push({ lvl: -1, text: t('a_raw') });
     if (has(pr, 'kidney')) why.push({ lvl: -1, text: t('a_kidney') });
+    // v3.1: cautious condition notes + well-established medicine–food notes (informational only)
+    const ids = new Set(foods.filter(x => x.f).map(x => x.f.id)), tg = tag => foods.some(x => x.f && x.f.tags.includes(tag));
+    const alcohol = tg('alcohol'), teaCoffee = ['buna', 'buna_sugar', 'shai', 'shai_sugar', 'macchiato'].some(i => ids.has(i));
+    if (has(pr, 'liver')) { why.push({ lvl: alcohol ? 2 : -1, text: t(alcohol ? 'a_liver_alcohol' : 'a_liver') }); if (alcohol) bump(2); }
+    if (has(pr, 'anemia')) {
+      const iron = foods.filter(x => x.f && (x.f.tags.includes('legume') || x.f.tags.includes('meat') || ['gomen', 'tikil_gomen', 'ayib_gomen', 'gomen_besiga', 'injera_teff', 'fosolia'].includes(x.f.id))).map(name);
+      const vitC = ['timatim', 'orange', 'juice_orange', 'guava', 'mango', 'papaya', 'selata', 'atkilt'].some(i => ids.has(i));
+      if (iron.length) why.push({ lvl: -1, good: true, text: t(vitC ? 'a_anemia_iron_c' : 'a_anemia_iron', { items: [...new Set(iron)].slice(0, 3).join(', ') }) });
+      else why.push({ lvl: -1, text: t('a_anemia') });
+      if (teaCoffee) why.push({ lvl: -1, text: t('a_anemia_tea') });
+    }
+    const MD = window.NolaMeds, ml = (pr.medList || []).map(m => MD && (m.medId ? MD.byId[m.medId] : MD.find(m.name))).filter(Boolean), mc = c => ml.some(m => c.includes(m.cls));
+    const dairy = foods.some(x => x.f && ((x.f.allergens || []).includes('dairy') || ['milk', 'ayib', 'ergo', 'ayib_gomen'].includes(x.f.id)));
+    const vitK = ['gomen', 'tikil_gomen', 'ayib_gomen', 'gomen_besiga', 'selata'].some(i => ids.has(i));
+    const mnote = k => why.push({ lvl: -1, med: true, text: '💊 ' + t(k) + ' ' + t('mn_ask') });
+    if (alcohol && mc(['biguanide', 'sulfonylurea', 'insulin'])) mnote('mn_alcohol_dm');
+    if (alcohol && mc(['nitroimidazole'])) mnote('mn_no_alcohol');
+    if (alcohol && mc(['warfarin', 'analgesic', 'tb'])) mnote('mn_alcohol_gen');
+    if (vitK && mc(['warfarin'])) mnote('mn_vitk');
+    if (teaCoffee && mc(['iron'])) mnote('mn_iron_tea');
+    if (dairy && mc(['quinolone', 'tetracycline'])) mnote('mn_dairy_abx');
 
     if (sev === 0 && !tips.size && dm) tips.add(t('tip_walk'));
     const verdict = ['good', 'adjust', 'alt'][sev];

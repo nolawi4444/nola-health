@@ -1,4 +1,4 @@
-NOLA HEALTH v3 - AI-powered personal health & nutrition companion (Ethiopia-first)
+NOLA HEALTH v3.1 - AI-powered personal health & nutrition companion (Ethiopia-first)
 ===================================================================================
 
 LIVE: https://nolawi4444.github.io/nola-health/  (open on your phone -> "Add to Home screen")
@@ -10,6 +10,38 @@ HOW TO RUN (Windows)
   3. On Android/iPhone: open the live link above in Chrome/Safari and choose "Add to Home screen".
      After the first load it works fully offline.
 Mac/Linux: run  python3 -m http.server 8642  in this folder and open http://localhost:8642/
+
+WHAT'S NEW IN v3.1 (everything from v1-v3 is kept; existing profiles are migrated automatically)
+  - Onboarding in 4 clear steps with a progress bar: "Welcome to NOLA HEALTH. Let's get to know you..."
+    1 About you (name, age or date of birth, weight, height, optional sex)
+    2 Health conditions as icon cards (diabetes type 1 / type 2 / type unknown, prediabetes, high BP,
+      cholesterol, heart, kidney, liver, anemia, obesity/weight concerns, digestive, other, "No known
+      conditions", "I'm not sure"), each with an optional details field. NOLA never adds a condition
+      from weight, BMI, food or behaviour.
+    3 Medicines: search ~50 common medicines in Ethiopia or type any name; dose, how often, what it is
+      for, optional package photo (compressed, stored only on the phone, for your reference - NOLA does
+      not read or identify it). Several medicines, or "I don't take medication". Edit later in
+      My Health > My medicines.
+    4 Food allergies, medication allergies, foods you avoid, diet, foods you like, activity and goals.
+  - "Hello, {name}! Your health journey starts today." - My health plan: educational goals chosen from
+    your conditions, medicines, age and goals (glucose only if diabetic or on diabetes medicine; BP if
+    hypertension/heart disease or on BP medicine; weight only for a weight goal or weight concern;
+    balanced plate, portions, water, activity). Kidney/heart: no water target - "ask your clinician".
+    Heart disease or age 65+: gentle activity, ask your doctor first. Today / completed / remaining,
+    7-day progress bars and simple trends (BP, glucose, weight, meals). No clinical targets are invented.
+  - Food analysis: kidney note is individualized (KDIGO 2024) with no generic potassium/protein rules;
+    liver (avoid alcohol, AASLD/EASL) and anemia (iron foods + vitamin C; tea/coffee away from meals,
+    WHO) notes; gentle medicine-food notes only where well established (grapefruit with some statins /
+    calcium-channel blockers, steady vitamin K with warfarin, alcohol with diabetes medicines, metronidazole,
+    dairy with some antibiotics, tea with iron), always "talk to your doctor or pharmacist".
+    Red is now "Consider an alternative or seek individualized advice"; green is "Generally suitable".
+  - NOLA AI answers medicine questions with general information only (what a medicine is commonly used
+    for, food interactions); timing/dose questions -> "ask your pharmacist"; never start/stop/change advice.
+    With an AI key, the AI context includes your medicine list, medication allergies and condition details
+    (never the medicine photos).
+  - Computers: at 900px+ the app shows a side navigation and a wider, centred layout.
+  - Limits: the medicine list is general reference information, not a full drug-interaction checker, and
+    has not been clinically validated; always confirm with a pharmacist.
 
 WHAT'S NEW IN v3 - "Powerful features, simple experience" (everything from v1 and v2 is kept)
   - New home: "Selam, {name}!" + 5 big buttons: SCAN MY FOOD, MY HEALTH, WHAT SHOULD I EAT?, ASK NOLA,

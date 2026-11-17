@@ -1,7 +1,7 @@
 /* NOLA HEALTH — app shell, router, screens */
 (function () {
   'use strict';
-  const VERSION = '3.0.0';
+  const VERSION = '3.1.0';
   const F = window.NolaFoods, E = window.NolaEngine, CH = window.NolaCharts, AI = window.NolaAI, DB = window.NolaDB;
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -39,7 +39,7 @@
     ['Ethiopian Public Health Institute: Food Composition Table for Use in Ethiopia', 'https://ephi.gov.et/'],
     ['NHLBI: DASH eating plan', 'https://www.nhlbi.nih.gov/education/dash-eating-plan'],
   ];
-  const CONDS = ['t1d', 't2d', 'pre', 'gdm', 'htn', 'chol', 'obesity', 'heart', 'kidney', 'none'];
+  const CONDS = ['t1d', 't2d', 'dm_unknown', 'pre', 'gdm', 'htn', 'chol', 'heart', 'kidney', 'liver', 'anemia', 'obesity', 'digestive', 'other', 'unsure', 'none'];
 
   /* ---------- infra ---------- */
   function toast(msg) { const el = $('#toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 2200); }
@@ -74,12 +74,12 @@
     const nav = $('#bottomnav'), fab = $('#fab');
     document.querySelectorAll('[data-t]').forEach(el => el.textContent = t(el.dataset.t));
     $('#langBtn').textContent = t('lang_toggle');
-    if (DB.locked) { nav.hidden = true; fab.hidden = true; S.route = 'lock'; $('#view').innerHTML = window.NolaFeatures.lockScreen(); setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 50); return; }
+    if (DB.locked) { nav.hidden = true; fab.hidden = true; document.body.classList.add('nonav'); S.route = 'lock'; $('#view').innerHTML = window.NolaFeatures.lockScreen(); setTimeout(() => { const i = $('#lockPin'); if (i) i.focus(); }, 50); return; }
     if (!profile() && name !== 'onboarding') { location.replace('#/onboarding'); name = 'onboarding'; }
     if (!ROUTES[name]) name = 'home';
     if (name === 'result' && !S.result) name = 'scan';
-    nav.hidden = name === 'onboarding'; fab.hidden = NO_FAB.includes(name);
-    const sec = { home: 'home', health: 'health', diary: 'health', readings: 'health', glucose: 'health', labs: 'health', report: 'health', scan: 'scan', result: 'scan', coach: 'coach' }[name] || 'me';
+    nav.hidden = name === 'onboarding'; fab.hidden = NO_FAB.includes(name); document.body.classList.toggle('nonav', nav.hidden);
+    const sec = { home: 'home', health: 'health', diary: 'health', readings: 'health', glucose: 'health', labs: 'health', report: 'health', meds: 'health', plan: 'health', scan: 'scan', result: 'scan', coach: 'coach' }[name] || 'me';
     nav.querySelectorAll('a').forEach(a => a.classList.toggle('on', a.dataset.nav === sec));
     $('#brandName').textContent = 'NOLA HEALTH';
     S.route = name;
@@ -94,61 +94,74 @@
     if (name === 'coach') { const v = $('#chatEnd'); if (v) v.scrollIntoView({ block: 'end' }); }
   }
 
-  /* ---------- ONBOARDING ---------- */
-  const OB_STEPS = 6;
+  /* ---------- ONBOARDING (v3.1: 4 steps — personal, conditions, medicines, food & goals) ---------- */
+  const OB_STEPS = 4;
+  const COND_I = { t1d: '💉', t2d: '🩸', dm_unknown: '🩸', pre: '📈', gdm: '🤰', htn: '❤️', chol: '🧈', heart: '🫀', kidney: '🫘', liver: '🟤', anemia: '🩸', obesity: '⚖️', digestive: '🌀', other: '📝', unsure: '🤔', none: '✅' };
   function obInit(edit) {
     const pr = profile();
-    S.ob = { step: edit ? 1 : 0, edit: !!edit, d: edit && pr ? JSON.parse(JSON.stringify(pr)) : { conditions: [], allergies: [], restrictions: [], prefs: ['ethiopian'], goals: [], activity: 'light', gender: '', unit: settings().unit, consent: false } };
-    if (edit) S.ob.d.consent = true;
+    S.ob = { step: edit ? 1 : 0, edit: !!edit, d: edit && pr ? JSON.parse(JSON.stringify(pr)) : { conditions: [], condDetails: {}, allergies: [], medAllergies: [], restrictions: [], prefs: ['ethiopian'], goals: [], activity: 'light', gender: '', unit: settings().unit, medList: [], consent: false } };
+    const d = S.ob.d; d.condDetails = d.condDetails || {}; d.medList = d.medList || []; d.medAllergies = d.medAllergies || [];
+    if (edit) d.consent = true;
   }
   const inp = (k, label, type = 'text', extra = '') => `<label class="f" for="ob_${k}">${t(label)}</label><input class="in" id="ob_${k}" type="${type}" data-bind="${k}" value="${esc(S.ob.d[k] ?? '')}" ${extra}>`;
   const chips = (k, opts, multi = true, prefix = '') => `<div class="chips">${opts.map(o => { const on = multi ? (S.ob.d[k] || []).includes(o) : S.ob.d[k] === o; return `<button type="button" class="chip ${on ? 'on' : ''}" data-action="ob-chip" data-k="${k}" data-v="${o}" data-multi="${multi ? 1 : ''}" aria-pressed="${on}">${t(prefix + o)}</button>`; }).join('')}</div>`;
+  function obProgress(step) {
+    const lab = ['ob_p1', 'ob_p2', 'ob_p3', 'ob_p4'];
+    return `<div class="small muted" style="margin-top:8px" id="obStepTxt">${t('ob_step', { n: step, t: OB_STEPS })}</div><div class="progress"><div style="width:${step / OB_STEPS * 100}%"></div></div>
+      <ol class="ob-steps" aria-label="${t('v3_steps')}">${lab.map((k, i) => `<li class="${i + 1 < step ? 'done' : i + 1 === step ? 'on' : ''}"><span>${i + 1 < step ? '✓' : i + 1}</span>${t(k)}</li>`).join('')}</ol>`;
+  }
   function rOnboarding() {
     if (!S.ob) obInit(false);
     const { step, d } = S.ob;
-    if (step === 0) return `${window.NolaV3 ? window.NolaV3.langPicker(true) : ''}<div class="hero"><div class="plate"></div><div style="font-size:42px">🥗</div><h1>${t('ob_welcome_title')}</h1><p>${t('ob_welcome_body')}</p></div>
+    if (step === 0) return `${window.NolaV3 ? window.NolaV3.langPicker(true) : ''}<div class="hero"><div class="plate"></div><div style="font-size:42px">🥗</div><h1 id="obWelcome">${t('ob_welcome_title')}</h1><p>${t('ob_welcome_body')}</p></div>
       <div class="trust"><div><i>🔬</i>${t('ob_trust1')}</div><div><i>📶</i>${t('ob_trust2')}</div><div><i>🔒</i>${t('ob_trust3')}</div></div>
       <button class="btn block" data-action="ob-next" id="obStart">${t('ob_start')} →</button>
       <p class="tiny muted center" style="margin-top:14px">${t('disclaimer')}</p>`;
     let body = '';
-    const titles = ['', 'ob_s_basic', 'ob_s_body', 'ob_s_cond', 'ob_s_numbers', 'ob_s_food', 'ob_s_goals'];
-    if (step === 1) body = inp('name', 'f_name', 'text', 'autocomplete="name"') + `<div class="grid2"><div>${inp('dob', 'f_dob', 'date')}</div><div>${inp('age', 'f_age', 'number', 'min="1" max="119" inputmode="numeric"')}</div></div>
-      <label class="f">${t('f_gender')} <span class="muted small">(${t('optional')})</span></label>${chips('gender', ['female', 'male', 'na'], false, 'g_')}`;
-    if (step === 2) {
-      const pr = d; const b = E.bmi(pr);
-      body = `<div class="grid2"><div>${inp('weight', 'f_weight', 'number', 'min="20" max="300" step="0.1" inputmode="decimal"')}</div><div>${inp('height', 'f_height', 'number', 'min="100" max="230" inputmode="numeric"')}</div></div>
-      <div id="bmiLive" class="small muted" style="margin-top:6px">${b ? `${t('bmi')}: <b>${b}</b> — ${t('bmi_' + E.bmiCat(b))}` : ''}</div>
-      ${inp('targetWeight', 'f_target_weight', 'number', 'step="0.1" inputmode="decimal"')}
-      <label class="f">${t('f_activity')}</label><div class="opt-list">${['sed', 'light', 'mod', 'active'].map(a => `<div class="opt ${d.activity === a ? 'on' : ''}" data-action="ob-chip" data-k="activity" data-v="${a}">${{ sed: '🪑', light: '🚶', mod: '🏃', active: '⛹️' }[a]} ${t('act_' + a)}</div>`).join('')}</div>`;
+    const titles = ['', 'ob_s_basic', 'ob_s_cond', 'ob_s_meds', 'ob_s_food'];
+    if (step === 1) {
+      const b = E.bmi(d);
+      body = `<p class="muted small">${t('ob_s1_intro')}</p>` + inp('name', 'f_name', 'text', 'autocomplete="name"') + `<div class="grid2"><div>${inp('dob', 'f_dob', 'date')}</div><div>${inp('age', 'f_age', 'number', 'min="1" max="119" inputmode="numeric"')}</div></div>
+      <div class="grid2"><div>${inp('weight', 'f_weight', 'number', 'min="20" max="300" step="0.1" inputmode="decimal"')}</div><div>${inp('height', 'f_height', 'number', 'min="100" max="230" inputmode="numeric"')}</div></div>
+      <div id="bmiLive" class="small muted" style="margin-top:6px">${b ? `${t('bmi')}: <b>${b}</b> — ${t('bmi_' + E.bmiCat(b))}` : ''}</div><p class="tiny muted">${t('ob_bmi_note')}</p>
+      <label class="f">${t('f_gender')} <span class="muted small">(${t('optional')})</span></label>${chips('gender', ['female', 'male', 'na'], false, 'g_')}<p class="tiny muted">${t('ob_gender_why')}</p>`;
     }
-    if (step === 3) body = `<p class="muted">${t('f_conditions')}</p>${chips('conditions', CONDS, true, 'c_')}
-      <p class="tiny muted" style="margin-top:14px">${t('ob_numbers_hint')}</p>`;
+    if (step === 2) {
+      const sel = d.conditions || [];
+      body = `<p class="muted">${t('ob_cond_q')}</p><p class="tiny muted">ℹ️ ${t('ob_cond_never')}</p>
+      <div class="cond-cards" id="condCards">${CONDS.map(c => { const on = sel.includes(c); return `<div class="cond ${on ? 'on' : ''}" data-cond="${c}"><button type="button" class="cond-btn" data-action="ob-chip" data-k="conditions" data-v="${c}" data-multi="1" aria-pressed="${on}"><span class="cond-i">${COND_I[c] || '•'}</span><span class="cond-l">${t('c_' + c)}</span><span class="cond-ck">${on ? '✓' : ''}</span></button>
+        ${on && !['none', 'unsure'].includes(c) ? `<input class="in sm" data-cdet="${c}" placeholder="${esc(t(c === 'other' ? 'ob_cond_other_ph' : 'ob_cond_det_ph'))}" value="${esc((d.condDetails || {})[c] || '')}" maxlength="160" aria-label="${esc(t('ob_cond_det_ph'))}">` : ''}</div>`; }).join('')}</div>
+      ${sel.includes('unsure') ? `<div class="banner green small">🤔 ${t('ob_unsure_note')}</div>` : ''}`;
+    }
+    if (step === 3) body = window.NolaV31 ? window.NolaV31.medEditor('ob') : '';
     if (step === 4) {
-      const dm = E.isDiabetic(d);
-      body = `<p class="muted small">${t('ob_numbers_hint')}</p>
+      const wGoal = (d.goals || []).some(g => ['lose', 'gain', 'maintain'].includes(g));
+      body = `<h3 class="ob-h">🥜 ${t('f_allergies')}</h3>${chips('allergies', ['gluten', 'dairy', 'egg', 'peanut', 'fish', 'legume'], true, 'a_')}${inp('allergyOther', 'f_allergy_other')}
+      <h3 class="ob-h">💊 ${t('f_med_allergies')}</h3>${chips('medAllergies', ['penicillin', 'sulfa', 'nsaid', 'aspirin'], true, 'ma_')}${inp('medAllergyOther', 'f_med_allergy_other')}
+      <h3 class="ob-h">🚫 ${t('f_avoid')}</h3>${inp('avoid', 'f_avoid_ph')}
+      <h3 class="ob-h">🍽️ ${t('f_restrictions')}</h3>${chips('restrictions', ['fasting', 'halal', 'vegetarian', 'vegan', 'glutenfree', 'noalcohol', 'lowsalt'], true, 'r_')}
+      <h3 class="ob-h">😋 ${t('f_prefs')}</h3>${chips('prefs', ['ethiopian', 'international', 'spicy'], true, 'p_')}${inp('fav', 'f_fav')}
+      <h3 class="ob-h">🚶 ${t('f_activity')}</h3><div class="opt-list">${['sed', 'light', 'mod', 'active'].map(a => `<div class="opt ${d.activity === a ? 'on' : ''}" data-action="ob-chip" data-k="activity" data-v="${a}">${{ sed: '🪑', light: '🚶', mod: '🏃', active: '⛹️' }[a]} ${t('act_' + a)}</div>`).join('')}</div>
+      <h3 class="ob-h">🎯 ${t('f_goals')}</h3>${chips('goals', ['glucose', 'bp', 'chol', 'maintain', 'lose', 'gain', 'nutrition', 'eat', 'energy'], true, 'goal_')}
+      ${wGoal ? inp('targetWeight', 'f_target_weight', 'number', 'step="0.1" inputmode="decimal"') : ''}
+      <details class="card tight ob-nums" ${d.bpSys || d.glucose || d.hba1c ? 'open' : ''}><summary>📊 ${t('ob_s_numbers')} <span class="tiny muted">(${t('optional')})</span></summary><p class="muted small">${t('ob_numbers_hint')}</p>
       <label class="f">${t('f_bp')}</label><div class="grid2"><div>${inp('bpSys', 'f_bp_sys', 'number', 'inputmode="numeric" placeholder="120"')}</div><div>${inp('bpDia', 'f_bp_dia', 'number', 'inputmode="numeric" placeholder="80"')}</div></div>
       ${E.has(d, 'htn') ? inp('bpSince', 'f_bp_since', 'number', 'inputmode="numeric" placeholder="2020"') : ''}
       <label class="f">${t('f_glucose_unit')}</label><div class="seg">${['mg', 'mmol'].map(u => `<button type="button" class="${d.unit === u ? 'on' : ''}" data-action="ob-chip" data-k="unit" data-v="${u}">${u === 'mg' ? 'mg/dL' : 'mmol/L'}</button>`).join('')}</div>
       <div class="grid2"><div>${inp('glucose', 'f_glucose', 'number', `step="0.1" inputmode="decimal" placeholder="${d.unit === 'mmol' ? '5.5' : '100'}"`)}</div><div>${inp('hba1c', 'f_hba1c', 'number', 'step="0.1" inputmode="decimal" placeholder="6.5"')}</div></div>
-      ${dm ? '' : ''}
-      <div class="grid2"><div>${inp('cholTotal', 'f_chol_total', 'number', 'inputmode="numeric"')}</div><div>${inp('ldl', 'f_ldl', 'number', 'inputmode="numeric"')}</div><div>${inp('hdl', 'f_hdl', 'number', 'inputmode="numeric"')}</div><div>${inp('trig', 'f_trig', 'number', 'inputmode="numeric"')}</div></div>`;
-    }
-    if (step === 5) body = `<label class="f">${t('f_allergies')}</label>${chips('allergies', ['gluten', 'dairy', 'egg', 'peanut', 'fish', 'legume'], true, 'a_')}${inp('allergyOther', 'f_allergy_other')}
-      <label class="f">${t('f_restrictions')}</label>${chips('restrictions', ['fasting', 'halal', 'vegetarian', 'vegan', 'glutenfree', 'noalcohol', 'lowsalt'], true, 'r_')}
-      <label class="f">${t('f_prefs')}</label>${chips('prefs', ['ethiopian', 'international', 'spicy'], true, 'p_')}${inp('fav', 'f_fav')}
-      <label class="f" for="ob_meds">${t('f_meds')}</label><textarea class="in" id="ob_meds" data-bind="meds">${esc(d.meds || '')}</textarea><p class="tiny muted">${t('f_meds_hint')}</p>`;
-    if (step === 6) body = `<p class="muted">${t('f_goals')}</p>${chips('goals', ['glucose', 'bp', 'chol', 'lose', 'maintain', 'gain', 'eat', 'energy'], true, 'goal_')}
+      <div class="grid2"><div>${inp('cholTotal', 'f_chol_total', 'number', 'inputmode="numeric"')}</div><div>${inp('ldl', 'f_ldl', 'number', 'inputmode="numeric"')}</div><div>${inp('hdl', 'f_hdl', 'number', 'inputmode="numeric"')}</div><div>${inp('trig', 'f_trig', 'number', 'inputmode="numeric"')}</div></div></details>
       ${S.ob.edit ? '' : `<label class="check"><input type="checkbox" id="obConsent" data-bind="consent" ${d.consent ? 'checked' : ''}><span class="small">${t('ob_consent')}</span></label>`}`;
-    return `<div class="small muted" style="margin-top:8px">${t('ob_step', { n: step, t: OB_STEPS })}</div><div class="progress"><div style="width:${step / OB_STEPS * 100}%"></div></div>
+    }
+    return `${obProgress(step)}
       <h1>${t(titles[step])}</h1><form id="obForm" onsubmit="return false">${body}</form>
-      <div class="ob-nav">${step > 1 || S.ob.edit ? `<button class="btn ghost" data-action="ob-back">${t('back')}</button>` : `<button class="btn ghost" data-action="ob-back">${t('back')}</button>`}
+      <div class="ob-nav"><button class="btn ghost" data-action="ob-back">${t('back')}</button>
       <button class="btn grow" data-action="ob-next" id="obNext">${step === OB_STEPS ? (S.ob.edit ? t('save') : t('ob_finish')) : t('next') + ' →'}</button></div>`;
   }
   function obValidate() {
     const { step, d } = S.ob;
-    if (step === 1) { if (!(d.name || '').trim()) return t('ob_need_name'); if (!d.dob && !(+d.age > 0)) return t('ob_need_body'); }
-    if (step === 2) { if (!(+d.weight >= 20 && +d.weight <= 300) || !(+d.height >= 90 && +d.height <= 240)) return t('ob_need_body'); }
-    if (step === 6 && !S.ob.edit && !d.consent) return t('ob_need_consent');
+    if (step === 1) { if (!(d.name || '').trim()) return t('ob_need_name'); if (!d.dob && !(+d.age > 0)) return t('ob_need_body'); if (!(+d.weight >= 20 && +d.weight <= 300) || !(+d.height >= 90 && +d.height <= 240)) return t('ob_need_body'); }
+    if (step === 3) { if (window.NolaV31) window.NolaV31.medAutoAdd('ob'); if (!d.noMeds && !(d.medList || []).length) return t('ob_need_meds'); }
+    if (step === 4 && !S.ob.edit && !d.consent) return t('ob_need_consent');
     return null;
   }
   function obFinish() {
@@ -156,7 +169,10 @@
     ['weight', 'height', 'age', 'targetWeight', 'bpSys', 'bpDia', 'glucose', 'hba1c', 'cholTotal', 'ldl', 'hdl', 'trig', 'bpSince'].forEach(k => { if (d[k] !== '' && d[k] != null) d[k] = +d[k]; });
     if (d.dob) d.age = E.age(d);
     d.conditions = (d.conditions || []).filter(c => c !== 'none' || d.conditions.length === 1);
-    d.updated = Date.now(); if (!d.created) d.created = Date.now();
+    Object.keys(d.condDetails || {}).forEach(c => { if (!d.conditions.includes(c) || !String(d.condDetails[c]).trim()) delete d.condDetails[c]; });
+    if (d.noMeds) d.medList = [];
+    if (window.NolaV31) window.NolaV31.syncMeds(d);
+    d.v31 = 1; d.updated = Date.now(); if (!d.created) d.created = Date.now();
     DB.set('profile', d);
     saveSettings({ unit: d.unit || 'mg' });
     const rs = readings().slice(); const now = Date.now();
@@ -166,7 +182,7 @@
     if (d.glucose && (!old || old.glucose !== d.glucose)) { const mg = E.toMgdl(d.glucose, d.unit); rs.push({ id: uid(), type: 'glucose', ts: now, mg, ctx: 'fasting' }); flag = flag || E.checkGlucose(mg, d.unit); }
     DB.set('readings', rs);
     const edit = S.ob.edit; S.ob = null;
-    location.hash = edit ? '#/me' : '#/home';
+    location.hash = edit ? '#/me' : '#/plan?first=1';
     if (edit) setTimeout(() => toast(t('profile_saved')), 80);
     if (flag) setTimeout(() => showAlert(flag), 300);
   }
@@ -558,7 +574,8 @@
     'ob-chip'(el) {
       const { k, v, multi } = el.dataset, d = S.ob.d;
       if (multi) { let arr = d[k] || []; arr = arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]; if (k === 'conditions') arr = v === 'none' ? (arr.includes('none') ? ['none'] : []) : arr.filter(x => x !== 'none'); d[k] = arr; }
-      else d[k] = d[k] === v && k === 'gender' ? '' : v;
+      if (k === 'conditions') { const dets = {}; document.querySelectorAll('[data-cdet]').forEach(i => { dets[i.dataset.cdet] = i.value; }); d.condDetails = Object.assign(d.condDetails || {}, dets); }
+      if (!multi) d[k] = d[k] === v && k === 'gender' ? '' : v;
       rerender();
     },
     'add-reading'(el) { readingSheet(el.dataset.type); },
@@ -655,6 +672,7 @@
       if (['weight', 'height'].includes(el.dataset.bind)) { const b = E.bmi(S.ob.d); const bl = $('#bmiLive'); if (bl) bl.innerHTML = b ? `${t('bmi')}: <b>${b}</b> — ${t('bmi_' + E.bmiCat(b))}` : ''; }
       if (el.dataset.bind === 'dob' && el.value) { const a = E.age({ dob: el.value }); S.ob.d.age = a; const ai = $('#ob_age'); if (ai) ai.value = a; }
     }
+    if (el.dataset.cdet && S.ob) { S.ob.d.condDetails = S.ob.d.condDetails || {}; S.ob.d.condDetails[el.dataset.cdet] = el.value; }
     if (el.dataset.actionInput === 'item-ing') S.draft.items[+el.dataset.i].ingredients = el.value;
     if (el.id === 'pickSearch') $('#pickList').innerHTML = pickerList(el.value);
   });
@@ -674,7 +692,7 @@
   window.addEventListener('online', net); window.addEventListener('offline', net);
 
   function applySettings() { const st = settings(); I18N.set(DB.ui().lang || st.lang); document.documentElement.lang = I18N.lang; document.body.classList.toggle('lowdata', !!st.lowData); document.documentElement.dataset.simple = st.simple ? '1' : ''; DB.ui({ simple: !!st.simple, lowData: !!st.lowData }); }
-  function afterUnlock() { applySettings(); if (!location.hash || location.hash === '#/lock') location.hash = '#/home'; route(); }
+  function afterUnlock() { applySettings(); if (window.NolaV31) window.NolaV31.migrate(); if (!location.hash || location.hash === '#/lock') location.hash = '#/home'; route(); }
   let hiddenAt = 0;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { hiddenAt = Date.now(); window.NolaVoice && window.NolaVoice.stopSpeaking(); return; }
@@ -683,7 +701,7 @@
   async function boot() {
     applyTextSize(); I18N.set(DB.ui().lang || 'en');
     await DB.init();
-    if (!DB.locked) applySettings();
+    if (!DB.locked) { applySettings(); if (window.NolaV31) window.NolaV31.migrate(); }
     net(); route();
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
       const had = !!navigator.serviceWorker.controller; let reloaded = false;

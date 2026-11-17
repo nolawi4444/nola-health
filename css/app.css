@@ -281,3 +281,65 @@ html[data-simple="1"] .adv{display:none!important}html[data-simple="1"] .bottomn
 html[data-simple="1"] .acts{grid-template-columns:1fr}html[data-simple="1"] .act{flex-direction:row;align-items:center;min-height:76px;gap:14px}html[data-simple="1"] .act .tiny{display:none}
 /* small phones */
 @media (max-width:370px){.greet3 h1{font-size:23px}.act{padding:12px 10px;min-height:108px}.act b{font-size:14px}.tools{grid-template-columns:repeat(2,1fr)}.shop-ctl{grid-template-columns:1fr 1fr}.steps li{font-size:11.5px;padding:5px 6px}.latest3 b{font-size:15px}.as-in b{font-size:20px}}
+/* ===== v3.1: onboarding steps, condition cards, medicines, plan ===== */
+.ob-steps{display:flex;gap:6px;list-style:none;padding:0;margin:8px 0 12px}
+.ob-steps li{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.2}
+.ob-steps li span{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#eef4f3;color:var(--muted);font-size:12.5px}
+.ob-steps li.on{color:var(--teal-d)}.ob-steps li.on span{background:var(--green);color:#fff;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+.ob-steps li.done span{background:var(--mint);color:var(--green)}
+.ob-h{font-size:15px;margin:18px 0 8px}
+.cond-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0}
+.cond{min-width:0;background:#fff;border:1.5px solid var(--line);border-radius:16px;transition:border-color .15s,box-shadow .15s}
+.cond.on{border-color:var(--green);background:#f3fbf6;box-shadow:0 2px 10px rgba(22,101,52,.12)}
+.cond-btn{all:unset;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:8px;padding:12px 10px;cursor:pointer;min-height:64px;border-radius:16px}
+.cond-btn:focus-visible{outline:3px solid var(--green);outline-offset:2px}
+.cond-i{font-size:24px;width:38px;height:38px;border-radius:12px;background:var(--mint);display:grid;place-items:center;flex:none}
+.cond-l{flex:1;font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.25}
+.cond-ck{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--line);display:grid;place-items:center;font-size:12px;color:#fff;flex:none}
+.cond.on .cond-ck{background:var(--green);border-color:var(--green)}
+.cond .in.sm,.in.sm{margin:0 10px 10px;width:calc(100% - 20px);padding:8px 10px;font-size:13px}
+.in.sm{margin:0;width:100%}
+.cond .in.sm{margin:0 10px 10px;width:calc(100% - 20px)}
+.med .row{align-items:center}.med-ph{width:44px;height:44px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+#medPhPrev .med-ph{width:64px;height:64px}
+#medSug{max-height:96px;overflow:auto}
+.chip.sm{padding:6px 11px;font-size:12.5px;min-height:32px}
+.pg-hello h1{margin:10px 0 2px}
+.pg-goal{display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.pg-goal:last-child{border:0}
+.pg-goal .ci{width:38px;height:38px;font-size:20px}.pg-goal.done b{color:var(--green)}
+.pg-goal .src{white-space:nowrap}
+.pg-week{display:flex;gap:6px;align-items:flex-end;height:110px}
+.pg-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%}
+.pg-bar{flex:1;width:100%;max-width:30px;background:#eef4f3;border-radius:8px;display:flex;align-items:flex-end;overflow:hidden}
+.pg-bar div{width:100%;background:linear-gradient(180deg,#22c55e,#15803d);border-radius:8px}
+.pill.info{background:#eef4f3;color:var(--muted)}.pill.good{background:#dcfce7;color:#166534}
+/* ===== v3.1: desktop / large screens ===== */
+@media (min-width:900px){
+  body{background:#eaf3ee}
+  .app{max-width:1200px;box-shadow:0 0 0 1px var(--line)}
+  .topbar{padding:12px 28px}
+  .bottomnav{top:64px;bottom:auto;right:auto;left:max(0px,calc(50% - 600px));width:220px;height:auto;max-width:none;margin:0;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:4px;padding:16px 12px;border:0;border-right:1px solid var(--line);background:#fff;min-height:calc(100vh - 64px);position:fixed}
+  .bottomnav a{flex:none;flex-direction:row;gap:12px;font-size:15px;padding:12px 14px;border-radius:12px}
+  .bottomnav a:hover{background:#f3fbf6}.bottomnav a.on{background:#ecfdf3}
+  .bottomnav svg{width:22px;height:22px}
+  .nav-scan .scan-fab{width:34px;height:34px;margin:0;border:0;box-shadow:none}.nav-scan .scan-fab svg{width:18px;height:18px}
+  .view{margin-left:220px;padding:14px 40px 110px;max-width:900px}
+  body.nonav .view{margin:0 auto;max-width:760px;padding-top:20px}
+  .chatbar{left:max(220px,calc(50% - 380px));right:auto;width:min(900px,calc(100% - 220px));max-width:none;bottom:0;padding:10px 40px 14px}
+  .fab{bottom:26px;right:max(24px,calc(50% - 576px))}
+  .toast{bottom:34px}
+  .sheet-wrap{align-items:center}.sheet{max-width:600px;border-radius:22px}
+  .acts{grid-template-columns:repeat(4,1fr)}
+  .tools{grid-template-columns:repeat(4,1fr)}
+  .hub{grid-template-columns:repeat(4,1fr)}
+  .cond-cards{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .pg-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 24px;align-items:start}
+  .hero{padding-top:30px}
+}
+@media (min-width:1300px){.view{max-width:960px}}
+html{scroll-padding-top:64px;scroll-padding-bottom:110px}
+.cond-l{overflow-wrap:anywhere}
+.cond{position:relative}.cond-btn{padding:12px 30px 12px 10px}
+.cond-ck{position:absolute;top:8px;right:8px;width:20px;height:20px}
+.cond-l{overflow-wrap:break-word;hyphens:auto}
+@media (max-width:400px){.cond-i{width:34px;height:34px;font-size:20px}.cond-l{font-size:13px}}
