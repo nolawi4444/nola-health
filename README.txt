@@ -1,5 +1,5 @@
-NOLA HEALTH v4.0 - Your Personal Health Companion.
-==================================================
+NOLA HEALTH v5.0 - Your Health. Your Food. Your Wellbeing.
+==========================================================
 
 LIVE: https://nolawi4444.github.io/nola-health/  (open on your phone -> "Add to Home screen")
 
@@ -10,38 +10,47 @@ HOW TO RUN (Windows)
      After the first load it works offline.
 Mac/Linux: run  python3 -m http.server 8642  in this folder and open http://localhost:8642/
 
-STRUCTURE (v4 is a complete redesign - green & white, large cards, English / Amharic)
-  Navigation: Home | Nolaa AI Doctor | About
+NAVIGATION: Home | Doctor | About      (English / Amharic button in the header)
 
-  HOME - four cards:
-    1. My Health        personal information, health conditions, medicines, blood pressure, blood sugar,
-                        weight; add / edit / delete readings with date and time; chart; full health history
-                        (readings + saved meals); PIN lock (secure login) and delete-all-data.
-    2. What Should I Eat?  up to 4 dish ideas per meal (breakfast / lunch / dinner / snack) chosen from your
-                        conditions, allergies, diet and fasting days, with estimated carbs, fibre, sodium and
-                        the reasons. Ethiopian dishes included; traditional foods are never labelled unhealthy.
-    3. Reminders        medicine reminders, check-ups and daily health goals (suggested from your profile).
-                        System notifications where the browser allows it + in-app alerts.
-    4. Scan Food        take or upload a meal photo; with an AI key the foods are recognised, otherwise you
-                        pick them from the food database; then estimated nutrition + personalised advice.
+HOME - exactly four cards (each shows live info: records to update, today's meal, reminders done):
+  1. My Health      profile (age, height, weight), conditions, allergies, medicines, health goals and
+                    target weight; BP / sugar / weight readings with date and time; progress chart and
+                    30/90-day changes; weekly summary; missing or overdue records with "Add now";
+                    medical reports (photo or PDF, stored on this device, encrypted with a PIN; photo
+                    reports can be sent to Doctor); export my data (JSON, never includes the AI key);
+                    PIN lock; delete all data.
+  2. What Should I Eat?  Today: breakfast, lunch, dinner and snack plan from the Ethiopian dish database,
+                    with calories, protein, carbs, fat, fibre, estimated cost, why each meal is
+                    recommended, swap and "I ate this" (saves to history). Ideas per meal and affordable
+                    picks. Cook today: tick what you have at home. Week: 7-day plan with variety and cost.
+                    All foods / vegetarian-fasting / with meat toggle, daily budget, allergies and fasting
+                    days respected. Traditional foods are never labelled unhealthy.
+  3. Reminders      medicine, appointment, check-up, water, BP, sugar, weight and daily-goal reminders;
+                    suggestions from your medicines and goals; morning and evening routines; daily
+                    motivational message; mark done / undo; weekly progress and medicine adherence;
+                    reminders can be linked to a goal. Notifications while the app is open + in-app alert.
+  4. Scan Food      take or upload a photo; with your own AI key foods are recognised, otherwise pick them
+                    from the database. Result: ESTIMATES of calories, macros and fibre, possible
+                    ingredients, portion, benefits, things to watch, fits-my-goals, advice, healthier
+                    alternatives. Correct portions / oil / salt / items and it recalculates. Compare two
+                    meals. Save to food history.
 
-  NOLAA AI DOCTOR - chat that uses your saved profile and readings. Answers only about health, symptoms,
-    food, nutrition, medicines and lab reports (type values, or send a lab photo with an AI key).
-    Politely declines other topics. Never diagnoses or prescribes; says when to see a doctor and when to
-    seek urgent care (907). Without an AI key it uses the built-in rule-based guide.
-    The AI key is set with the small gear button inside Nolaa AI Doctor.
+DOCTOR - uses your saved profile, readings and goals. Explains symptoms, conditions, medical words,
+  medicine side effects, lab values (typed, or a lab photo with an AI key), BP and sugar readings and
+  nutrition, in simple English or Amharic. Recognises warning signs and shows 907. Memory only with your
+  consent (toggle + list of saved facts you can delete). Conversation summary and questions to ask your
+  health professional. Never diagnoses or prescribes; says what it cannot know.
 
-  ABOUT - what NOLA HEALTH is, the mission (health and nutrition guidance accessible to everyone in
-    Ethiopia), safety and privacy.
+ABOUT - introduction, mission, vision, why Ethiopia, privacy, responsible AI, safety, contact.
+  Contact details are a placeholder: edit js/config.js (window.NOLA_CONFIG.contact).
 
-YOUR DATA
-  Stored only on your device (IndexedDB). With a PIN it is encrypted (AES-GCM). Existing v1-v3.1 data
-  (profile, conditions, medicines, readings, reminders, PIN) is kept and migrated automatically.
-  Removed in v4: academy, journey, family circle, budget/market/shopping, restaurant assistant,
-  challenges, clinician view and dashboards.
+PRIVACY & SECURITY - consent screen before any health data is stored; all data stays on the device
+  (IndexedDB); optional PIN encrypts everything (AES-GCM); AI key is entered by you, stored only on this
+  device and never included in the code or in exports. Data from v3.1 and v4 is migrated automatically.
 
-LIMITATIONS
-  - Photo recognition, lab-photo reading and free-text AI answers need your own OpenAI-compatible API key.
-  - Notifications work while the app/browser is open or running in the background; phones may stop them
-    when the app is fully closed (there is no server).
-  - Nutrition values are estimates. NOLA HEALTH is not a doctor and does not replace one.
+LIMITATIONS - photo recognition, lab-photo reading and free-form chat need your own AI key (otherwise an
+  offline guide answers); PDF reports are stored but only photos can be sent to Doctor; notifications only
+  fire while the app/browser is running; nutrition values and prices are estimates; NOLA HEALTH is not a
+  doctor. Emergency: 907.
+
+NOLA HEALTH - Understand Your Health. Make Better Choices. Live Better.

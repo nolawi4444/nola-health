@@ -136,5 +136,40 @@ body[data-route=doctor] .view{padding-bottom:190px}
   .remalert-wrap{bottom:24px;right:24px;left:auto;width:420px}
   .toast{bottom:40px}
 }
+
+/* ---------- v5 ---------- */
+@keyframes nhFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+#view>*{animation:nhFade .28s ease-out both}
+.closing{margin:26px 4px 8px;text-align:center;font-size:13.5px;color:var(--muted);line-height:1.5}.closing b{color:var(--gd);letter-spacing:.3px}
+.okcard{background:var(--mint);border-color:var(--mint2)}.okcard p{margin:0}
+.warncard{border-color:#fde68a;background:linear-gradient(180deg,#fffbeb,#fff 60%)}
+.rrow .ri{font-size:22px;width:30px;text-align:center}
+.fnext.warn{color:var(--amb)}
+.wsum{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:6px}
+.wsum>div{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
+.wsum span{font-size:13px;color:var(--muted);font-weight:600}.wsum b{font-size:19px;color:var(--gd)}.wsum small{font-size:12.5px;color:var(--muted)}
+.gp{padding:10px 0;border-top:1px solid var(--line)}.gp:first-of-type{border-top:0}.gp p{margin:3px 0 6px}
+.prog{height:10px;background:#e6f0ea;border-radius:99px;overflow:hidden}.prog span{display:block;height:100%;background:linear-gradient(90deg,var(--g2),var(--g3));border-radius:99px;transition:width .5s}
+.repimg{width:100%;max-height:60vh;object-fit:contain;border-radius:12px;border:1px solid var(--line);margin:8px 0;background:#f8faf9}
+.consent-wrap{min-height:60vh;display:flex;align-items:center;justify-content:center}
+.consent-card{max-width:560px;width:100%;text-align:left}.consent-card img{display:block;margin:0 auto 6px}.consent-card h1{text-align:center;font-size:24px;margin:6px 0 10px;color:var(--gd)}
+.cslist{list-style:none;padding:0;margin:10px 0}.cslist li{padding:8px 0;border-top:1px solid var(--line);font-size:15px}
+.asec{padding:10px 0;border-top:1px solid var(--line)}.asec:first-child{border-top:0;padding-top:0}.asec h2{font-size:18px;margin:4px 0 6px}
+.placeholder{background:var(--bg);border:1.5px dashed var(--line);border-radius:12px;padding:12px;color:var(--muted);font-style:italic}
+.eatopts{display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.budget{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.budget .in{max-width:130px;margin:0}
+.pmeal{margin:12px 0}.slotlbl{font-weight:800;color:var(--gd);font-size:15px;margin:0 4px 4px}
+.wday{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:10px 0;box-shadow:var(--sh)}
+.wmeals{list-style:none;padding:0;margin:8px 0 0}.wmeals li{padding:4px 0;font-size:14.5px}.wmeals li span{display:inline-block;min-width:86px;color:var(--muted);font-weight:600}
+.motiv{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,var(--mint),#fff);border-color:var(--mint2)}.motiv span{font-size:28px}.motiv p{margin:0;font-weight:600;color:var(--gd)}
+.grid2r{display:grid;grid-template-columns:1fr;gap:0 12px}.routine h3{margin:2px 0 6px;font-size:17px}
+.bars{display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:6px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.bt{width:100%;max-width:34px;height:96px;display:flex;align-items:flex-end}.bd{width:100%;background:#e6f0ea;border-radius:8px 8px 4px 4px;display:flex;align-items:flex-end;overflow:hidden;min-height:4px}.bf{width:100%;background:var(--g2)}
+.linkish{border:0;cursor:pointer;font:inherit;font-size:13px}
+.estimate-banner{background:var(--ambbg);border:1.5px solid #fcd34d;color:#78350f;border-radius:14px;padding:10px 12px;font-weight:700;font-size:14px;margin:8px 0}
+.cmp th{font-size:13px;color:var(--muted);text-align:left;padding:6px 2px}.cmp td.win{background:var(--mint2);color:#166534;font-weight:800;border-radius:6px}
+.intro{color:var(--muted)}
+@media (min-width:900px){.grid2r{grid-template-columns:1fr 1fr}.eatopts{flex-direction:row;align-items:center;justify-content:space-between}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media print{.topbar,.mainnav,.chatbar{display:none!important}}

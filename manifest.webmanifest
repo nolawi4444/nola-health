@@ -1,7 +1,7 @@
 {
   "name": "NOLA HEALTH",
   "short_name": "NOLA HEALTH",
-  "description": "NOLA HEALTH — Your Personal Health Companion.",
+  "description": "NOLA HEALTH — Your Health. Your Food. Your Wellbeing.",
   "start_url": "./index.html#/home",
   "scope": "./",
   "display": "standalone",

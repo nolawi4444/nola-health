@@ -33,7 +33,7 @@
     return (j.foods || []).map(x => {
       const f = (x.db_id && window.NolaFoods.byId[x.db_id]) || window.NolaFoods.match(x.name);
       const mult = Math.max(0.25, Math.min(4, Math.round((+x.portion_multiplier || 1) * 4) / 4));
-      const it = { conf: Math.max(0, Math.min(1, +x.confidence || 0.5)), oil: ['low', 'normal', 'high'].includes(x.oil_level) ? x.oil_level : 'normal', salt: 'normal', ingredients: (x.ingredients || []).filter(Boolean).join(', '), cooking: x.cooking_method || '', aiName: x.name, portionDesc: x.portion_desc || '' };
+      const it = { conf: Math.max(0, Math.min(1, +x.confidence || 0.5)), oil: ['low', 'normal', 'high'].includes(x.oil_level) ? x.oil_level : 'normal', salt: 'normal', ingredients: Array.isArray(x.ingredients) ? x.ingredients.filter(Boolean).join(', ') : String(x.ingredients || ''), cooking: x.cooking_method || '', aiName: x.name, portionDesc: x.portion_desc || '' };
       if (f) return Object.assign(it, { foodId: f.id, mult });
       const n = x.nutrition || {}; const c = {}; window.NolaEngine.NUTS.forEach(k => c[k] = Math.max(0, +n[k] || 0)); c.oilG = c.f * 0.5;
       return Object.assign(it, { foodId: null, name: x.name || 'Food', mult: 1, custom: c });

@@ -1,7 +1,7 @@
 /* NOLA HEALTH meal ideas: Ethiopian-first dishes mapped to the food database (for personalised
    "What should I eat?" suggestions). Slots: b=breakfast l=lunch d=dinner s=snack. */
 (function () {
-  const D = (id, slots, en, am, items) => ({ id, slots, name: { en, am }, items });
+  const D = (id, slots, en, am, items, ing) => ({ id, slots, name: { en, am }, items, ing: ing || {} });
   const DISHES = [
     D('b_ful', 'b', 'Ful with egg + ½ kita', 'ፉል በእንቁላል + ግማሽ ቂጣ', [['ful', 1, { oil: 'low' }], ['egg', 1], ['kita', 0.5]], { fava: .08, onion: .03, tomato: .05, veg_oil: .006, green_pepper: .01, eggs: 1, wheat_flour: .05, salt: .002 }),
     D('b_enkulal', 'b', 'Enkulal firfir + ½ teff injera', 'እንቁላል ፍርፍር + ግማሽ እንጀራ', [['enkulal_firfir', 1], ['injera_teff', 0.5]], { eggs: 2, onion: .04, tomato: .06, green_pepper: .02, veg_oil: .008, teff: .05 }),
@@ -10,6 +10,8 @@
     D('b_bread', 'b', 'Whole-wheat bread + ayib + banana', 'ሙሉ ስንዴ ዳቦ + አይብ + ሙዝ', [['bread_whole', 2], ['ayib', 0.5], ['banana', 1]], { wheat_flour: .07, ayib: .055, banana: .12 }),
     D('b_tsom_firfir', 'b', 'Fasting firfir + plain shai', 'የጾም ፍርፍር + ሻይ', [['tsom_firfir', 0.8, { oil: 'low' }], ['shai', 1]], { teff: .08, onion: .04, tomato: .04, berbere: .004, veg_oil: .008, tea: .002 }),
     D('b_chechebsa', 'b', 'Chechebsa (less butter, no honey) + egg', 'ጨጨብሳ (ትንሽ ቅቤ፣ ያለ ማር) + እንቁላል', [['chechebsa', 0.6, { oil: 'low' }], ['egg', 1]], { wheat_flour: .07, kibbeh: .008, berbere: .003, eggs: 1 }),
+    D('b_firfir', 'bl', 'Injera firfir (less oil) + tomato salad', 'የእንጀራ ፍርፍር (ትንሽ ዘይት) + የቲማቲም ሰላጣ', [['firfir', 0.8, { oil: 'low' }], ['timatim', 0.5]], { teff: .08, onion: .04, tomato: .08, berbere: .004, kibbeh: .005 }),
+    D('m_atkilt', 'ld', 'Atkilt wot + misir + injera', 'አትክልት ወጥ + ምስር + እንጀራ', [['atkilt', 1], ['misir', 0.5], ['injera_teff', 1]], { cabbage: .12, potato: .08, carrot: .05, lentils: .035, onion: .05, veg_oil: .014, berbere: .003, teff: .1 }),
     D('m_shiro', 'ld', 'Shiro + gomen + injera', 'ሽሮ + ጎመን + እንጀራ', [['shiro', 1], ['gomen', 1], ['injera_teff', 1]], { shiro: .05, onion: .05, garlic: .005, veg_oil: .018, collards: .15, teff: .1, salt: .003 }),
     D('m_misir', 'ld', 'Misir wot + tikil gomen + injera', 'ምስር ወጥ + ጥቅል ጎመን + እንጀራ', [['misir', 1], ['tikil_gomen', 1], ['injera_teff', 1]], { lentils: .07, onion: .06, berbere: .005, veg_oil: .016, cabbage: .15, carrot: .04, potato: .06, teff: .1, garlic: .005 }),
     D('m_kik', 'ld', 'Kik alicha + atkilt + injera', 'ክክ አልጫ + አትክልት + እንጀራ', [['kik', 1], ['atkilt', 1], ['injera_teff', 1]], { split_peas: .07, onion: .05, turmeric: .002, veg_oil: .014, cabbage: .1, potato: .08, carrot: .04, teff: .1 }),
@@ -32,6 +34,23 @@
     D('s_avocado', 's', '½ avocado', 'ግማሽ አቮካዶ', [['avocado', 1]], { avocado: .1 }), D('s_papaya', 's', 'Papaya', 'ፓፓያ', [['papaya', 1]], { papaya: .15 }),
     D('s_egg', 's', 'Boiled egg', 'የተቀቀለ እንቁላል', [['egg', 1]], { eggs: 1 }),
   ];
+  // ingredient id: [en, am, category, unit, approx. ETB per unit (Addis Ababa retail, late 2025/2026 estimate), step]
+  const ING = {
+    teff: ['Teff flour', 'የጤፍ ዱቄት', 'grains', 'kg', 190, 0.5], wheat_flour: ['Wheat flour', 'የስንዴ ዱቄት', 'grains', 'kg', 110, 0.5], barley_flour: ['Barley flour', 'የገብስ ዱቄት', 'grains', 'kg', 120, 0.5],
+    rice: ['Rice', 'ሩዝ', 'grains', 'kg', 160, 0.5], pasta: ['Pasta / macaroni', 'ፓስታ / መኮሮኒ', 'grains', 'kg', 140, 0.5], kolo_grain: ['Roasted barley (kolo)', 'ቆሎ', 'grains', 'kg', 150, 0.25],
+    shiro: ['Shiro powder', 'የሽሮ ዱቄት', 'protein', 'kg', 280, 0.25], lentils: ['Red lentils', 'ምስር ክክ', 'protein', 'kg', 190, 0.25], split_peas: ['Yellow split peas', 'የአተር ክክ', 'protein', 'kg', 150, 0.25],
+    fava: ['Fava beans', 'ባቄላ', 'protein', 'kg', 140, 0.25], chickpeas: ['Chickpeas', 'ሽንብራ', 'protein', 'kg', 160, 0.25], peanuts: ['Peanuts', 'ኦቾሎኒ', 'protein', 'kg', 300, 0.25],
+    eggs: ['Eggs', 'እንቁላል', 'protein', 'pc', 13, 1], beef: ['Beef', 'የበሬ ስጋ', 'protein', 'kg', 950, 0.25], chicken: ['Chicken', 'ዶሮ', 'protein', 'kg', 700, 0.5], fish: ['Fish (tilapia)', 'አሳ (ቆሮሶ)', 'protein', 'kg', 500, 0.25],
+    ayib: ['Ayib (cottage cheese)', 'አይብ', 'dairy', 'kg', 350, 0.25], milk: ['Milk', 'ወተት', 'dairy', 'L', 90, 0.5], yogurt: ['Ergo / yogurt', 'እርጎ', 'dairy', 'L', 130, 0.5],
+    onion: ['Red onion', 'ቀይ ሽንኩርት', 'vegetables', 'kg', 60, 0.5], tomato: ['Tomato', 'ቲማቲም', 'vegetables', 'kg', 70, 0.5], garlic: ['Garlic', 'ነጭ ሽንኩርት', 'vegetables', 'kg', 250, 0.1],
+    ginger: ['Ginger', 'ዝንጅብል', 'vegetables', 'kg', 220, 0.1], potato: ['Potato', 'ድንች', 'vegetables', 'kg', 45, 0.5], carrot: ['Carrot', 'ካሮት', 'vegetables', 'kg', 60, 0.25],
+    cabbage: ['Cabbage', 'ጥቅል ጎመን', 'vegetables', 'kg', 40, 0.5], collards: ['Collard greens (gomen)', 'ጎመን', 'vegetables', 'kg', 50, 0.25], green_pepper: ['Green pepper (karia)', 'ቃሪያ', 'vegetables', 'kg', 120, 0.1],
+    pumpkin: ['Pumpkin', 'ዱባ', 'vegetables', 'kg', 50, 0.5], green_beans: ['Green beans', 'ፎሶሊያ', 'vegetables', 'kg', 90, 0.25], lettuce: ['Lettuce', 'ሰላጣ', 'vegetables', 'kg', 80, 0.25],
+    banana: ['Banana', 'ሙዝ', 'fruits', 'kg', 80, 0.5], orange: ['Orange', 'ብርቱካን', 'fruits', 'kg', 120, 0.5], avocado: ['Avocado', 'አቮካዶ', 'fruits', 'kg', 100, 0.25],
+    papaya: ['Papaya', 'ፓፓያ', 'fruits', 'kg', 70, 0.5], lemon: ['Lemon', 'ሎሚ', 'fruits', 'kg', 120, 0.1],
+    veg_oil: ['Vegetable oil', 'የምግብ ዘይት', 'other', 'L', 280, 0.5], kibbeh: ['Niter kibbeh', 'ንጥር ቅቤ', 'other', 'kg', 1400, 0.1], berbere: ['Berbere', 'በርበሬ', 'other', 'kg', 650, 0.1],
+    turmeric: ['Turmeric (ird)', 'እርድ', 'other', 'kg', 400, 0.05], salt: ['Salt (iodised)', 'ጨው (አዮዲን ያለው)', 'other', 'kg', 30, 0.5], coffee: ['Coffee beans', 'ቡና', 'other', 'kg', 750, 0.25], tea: ['Tea leaves', 'ሻይ ቅጠል', 'other', 'kg', 500, 0.05],
+  };
   const SLOT = { breakfast: 'b', lunch: 'l', dinner: 'd', snack: 's' };
   const E = () => window.NolaEngine, F = () => window.NolaFoods;
   function dishItems(d, pr) {
@@ -49,5 +68,5 @@
     if (foods.some(f => f.allergens.some(a => al.includes(a)) || (al.includes('legume') && f.tags.includes('legume')))) return false;
     return true;
   }
-  window.NolaDishes = { DISHES, SLOT, dishItems, allowed, byId: id => DISHES.find(d => d.id === id) };
+  window.NolaDishes = { DISHES, SLOT, ING, dishItems, allowed, byId: id => DISHES.find(d => d.id === id) };
 })();
